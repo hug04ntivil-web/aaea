@@ -1,12 +1,12 @@
-import { createAdminClient } from "@/lib/supabase/admin"
+import { createPublicClient } from "@/lib/supabase/public"
 import { notFound } from "next/navigation"
 import BudgetDetail from "@/components/budget/budget-detail"
 
 export default async function PublicBudgetPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
-  const admin = createAdminClient()
+  const supabase = createPublicClient()
 
-  const { data: budget } = await admin
+  const { data: budget } = await supabase
     .from("budgets")
     .select(`*, clients(full_name, email, phone, rut), profiles(full_name, signature_url), budget_items(*)`)
     .eq("public_token", token)

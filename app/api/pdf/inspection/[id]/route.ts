@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 import PDFDocument from "pdfkit"
 
 function scoreColor(nota: number): string {
@@ -20,9 +20,9 @@ function formatDate(d: string) {
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const admin = createAdminClient()
+  const supabase = await createClient()
 
-  const { data: ins } = await admin
+  const { data: ins } = await supabase
     .from("inspections")
     .select(`*, vehicles(*), clients(full_name, rut, phone, email), profiles(full_name)`)
     .eq("id", id)
@@ -30,7 +30,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
 
   if (!ins) return new NextResponse("Not found", { status: 404 })
 
-  const { data: items } = await admin
+  const { data: items } = await supabase
     .from("inspection_items")
     .select("*")
     .eq("inspection_id", id)
@@ -136,8 +136,9 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
       }
 
       const estadoColor = item.estado === "N/A" ? "#94a3b8" :
-        ["Bueno", "Sin Daño", "Normal", "Funciona", "A nivel", "No Presenta"].includes(item.estado) ? "#16a34a" :
-        ["Malo", "Con Daño", "Anormal", "Bajo nivel", "Presenta"].includes(item.estado) ? "#dc2626" : "#374151"
+        ["Bueno", "Sin Daño", "Normal", "Funciona", "A nivel", "No Presenta", "No Encendido"].includes(item.estado) ? "#16a34a" :
+        ["Con Daño", "Regular"].includes(item.estado) ? "#d97706" :
+        ["Malo", "Anormal", "No Funciona", "Bajo nivel", "Encendido"].includes(item.estado) ? "#dc2626" : "#374151"
 
       doc.fillColor(y % 20 < 10 ? "#f8fafc" : "#ffffff").rect(40, y - 1, 515, 13).fill()
       doc.fillColor("#374151").fontSize(8).font("Helvetica").text(item.item_label, 48, y, { width: 380 })

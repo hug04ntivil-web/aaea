@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 import PDFDocument from "pdfkit"
 
 function fmt(n: number | null) {
@@ -13,9 +13,9 @@ function formatDate(d: string) {
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const admin = createAdminClient()
+  const supabase = await createClient()
 
-  const { data: budget } = await admin
+  const { data: budget } = await supabase
     .from("budgets")
     .select(`*, clients(full_name, rut, phone, email), profiles(full_name, signature_url), budget_items(*)`)
     .eq("id", id)
