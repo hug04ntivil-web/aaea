@@ -6,7 +6,6 @@ export async function GET() {
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   const anon = createAnonClient(url, anonKey)
 
-  // Enviar email de reset al admin
   const { error } = await anon.auth.resetPasswordForEmail(
     "hugo0.4ntivil@gmail.com",
     { redirectTo: "https://aaea-pdtb.vercel.app/reset-password" }
@@ -15,6 +14,6 @@ export async function GET() {
   return NextResponse.json({
     sent: !error,
     error: error?.message ?? null,
-    note: "Revisa tu Gmail — hugo0.4ntivil@gmail.com",
+    note: "Revisa tu Gmail: hugo0.4ntivil@gmail.com",
   })
 }
