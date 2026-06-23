@@ -6,7 +6,7 @@ import { toast } from "sonner"
 import { Plus, Trash2 } from "lucide-react"
 
 interface Client { id: string; full_name: string; phone?: string }
-interface Inspection { id: string; vehicles: { patente: string; marca: string; modelo: string } }
+interface Inspection { id: string; vehicles?: { patente?: string; marca?: string; modelo?: string } | null }
 
 interface Props {
   inspectorId: string
