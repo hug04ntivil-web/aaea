@@ -37,6 +37,19 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
     .order("section")
     .order("sort_order")
 
+  // Pre-fetch photo buffers (async, antes de generar el PDF)
+  const photoBuffers: Buffer[] = []
+  if (ins.photos && ins.photos.length > 0) {
+    for (const url of ins.photos as string[]) {
+      try {
+        const res = await fetch(url)
+        if (res.ok) photoBuffers.push(Buffer.from(await res.arrayBuffer()))
+      } catch {
+        // imagen no disponible — omitir
+      }
+    }
+  }
+
   const doc = new PDFDocument({ margin: 40, size: "A4" })
   const chunks: Buffer[] = []
   doc.on("data", (chunk: Buffer) => chunks.push(chunk))
@@ -151,9 +164,41 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
       if (y > 700) { doc.addPage(); y = 40 }
       y += 8
       doc.fillColor("#f1f5f9").rect(40, y, 515, 16).fill()
-      doc.fillColor("#1e293b").fontSize(8).font("Helvetica-Bold").text("COMENTARIOS DEL INSPECTOR", 48, y + 4)
+      doc.fillColor("#1e293b").fontSize(8).font("Helvetica-Bold").text("OBSERVACIONES DEL INSPECTOR", 48, y + 4)
       y += 22
       doc.fillColor("#374151").fontSize(8.5).font("Helvetica").text(ins.comentarios, 48, y, { width: 500, lineGap: 3 })
+      y += doc.heightOfString(ins.comentarios, { width: 500 }) + 8
+    }
+
+    // ── FOTOGRAFÍAS ───────────────────────────────────
+    if (photoBuffers.length > 0) {
+      if (y > 650) { doc.addPage(); y = 40 }
+      y += 10
+      doc.fillColor("#f1f5f9").rect(40, y, 515, 16).fill()
+      doc.fillColor("#1e293b").fontSize(8).font("Helvetica-Bold").text("FOTOGRAFÍAS DEL VEHÍCULO", 48, y + 4)
+      y += 22
+
+      const imgW = 160
+      const imgH = 120
+      const gap = 7
+      let col = 0
+
+      for (let pi = 0; pi < photoBuffers.length; pi++) {
+        if (y + imgH > 760) { doc.addPage(); y = 40; col = 0 }
+        const x = 40 + col * (imgW + gap)
+        try {
+          doc.image(photoBuffers[pi], x, y, { width: imgW, height: imgH })
+        } catch {
+          // imagen corrupta — dibujar placeholder
+          doc.fillColor("#f1f5f9").rect(x, y, imgW, imgH).fill()
+          doc.fillColor("#94a3b8").fontSize(7).text("Sin imagen", x, y + imgH / 2 - 4, { width: imgW, align: "center" })
+        }
+        // Número de foto
+        doc.fillColor("#94a3b8").fontSize(6.5).font("Helvetica").text(`Foto ${pi + 1}`, x, y + imgH + 2, { width: imgW, align: "center" })
+        col++
+        if (col === 3) { col = 0; y += imgH + 14 }
+      }
+      if (col > 0) y += imgH + 14
     }
 
     // ── FOOTER ───────────────────────────────────────

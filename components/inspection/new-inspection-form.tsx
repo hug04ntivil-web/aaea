@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
-import { Search, ChevronRight, User, Car, ClipboardList, ArrowUp, X } from "lucide-react"
+import { Search, ChevronRight, User, Car, ClipboardList, ArrowUp, X, Camera } from "lucide-react"
 import { INSPECTION_ITEMS, getSubsections, getItemsBySubsection } from "@/lib/inspection-items"
 import { cn, calcNotaFinal, calcSectionScore } from "@/lib/utils"
 
@@ -57,18 +57,21 @@ function ScoreBar({ value }: { value: number }) {
 function ScrollToTopButton() {
   const [visible, setVisible] = useState(false)
   useEffect(() => {
-    const onScroll = () => setVisible(window.scrollY > 350)
-    window.addEventListener("scroll", onScroll, { passive: true })
-    return () => window.removeEventListener("scroll", onScroll)
+    // El scroll está en <main>, no en window (overflow-y-auto del AppShell)
+    const main = document.querySelector("main")
+    if (!main) return
+    const onScroll = () => setVisible(main.scrollTop > 300)
+    main.addEventListener("scroll", onScroll, { passive: true })
+    return () => main.removeEventListener("scroll", onScroll)
   }, [])
   if (!visible) return null
   return (
     <button
-      onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-      className="fixed bottom-6 right-4 z-50 w-11 h-11 bg-slate-800 hover:bg-slate-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all"
+      onClick={() => document.querySelector("main")?.scrollTo({ top: 0, behavior: "smooth" })}
+      className="fixed bottom-6 right-4 z-50 w-10 h-10 bg-slate-700/80 hover:bg-slate-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all backdrop-blur-sm"
       aria-label="Subir al inicio"
     >
-      <ArrowUp size={18} />
+      <ArrowUp size={16} />
     </button>
   )
 }
@@ -104,6 +107,28 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
   })
 
   const [comentarios, setComentarios] = useState("")
+  const [photoFiles, setPhotoFiles] = useState<Array<{ file: File; preview: string }>>([])
+  const photoInputRef = useRef<HTMLInputElement>(null)
+
+  function handlePhotoAdd(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    const valid = files.filter(f => {
+      if (f.size > 5 * 1024 * 1024) {
+        toast.error(`"${f.name}" supera los 5 MB`)
+        return false
+      }
+      return true
+    })
+    setPhotoFiles(prev => [...prev, ...valid.map(f => ({ file: f, preview: URL.createObjectURL(f) }))].slice(0, 10))
+    e.target.value = ""
+  }
+
+  function removePhoto(idx: number) {
+    setPhotoFiles(prev => {
+      URL.revokeObjectURL(prev[idx].preview)
+      return prev.filter((_, i) => i !== idx)
+    })
+  }
 
   // Auto-calculated scores
   const notaVisual = calcSectionScore(SECTION_ITEMS.visual, items)
@@ -234,6 +259,23 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
     }
     setLoading(true)
     try {
+      // Subir fotos a Storage antes de guardar la inspección
+      const photoUrls: string[] = []
+      if (photoFiles.length > 0) {
+        const supabase = createClient()
+        const folder = crypto.randomUUID()
+        for (const { file } of photoFiles) {
+          const ext = file.name.split(".").pop() ?? "jpg"
+          const path = `${folder}/${crypto.randomUUID()}.${ext}`
+          const { data, error } = await supabase.storage
+            .from("inspection-photos")
+            .upload(path, file, { cacheControl: "3600", upsert: false })
+          if (error) throw new Error(`Error al subir foto: ${error.message}`)
+          const { data: { publicUrl } } = supabase.storage.from("inspection-photos").getPublicUrl(data.path)
+          photoUrls.push(publicUrl)
+        }
+      }
+
       const res = await fetch("/api/inspections", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -246,6 +288,7 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
           notaCarroceria,
           notaMecanica,
           comentarios,
+          photos: photoUrls,
           items,
           inspectorId,
         }),
@@ -509,10 +552,61 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
             <ScoreBar value={sectionScore} />
           </div>
 
+          {/* Fotografías — solo en la última sección, antes de comentarios */}
+          {step === "mecanica" && (
+            <div className="mt-5">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                  <Camera size={15} className="text-gray-400" /> Fotografías del vehículo
+                </label>
+                <span className="text-xs text-gray-400">{photoFiles.length}/10 · máx. 5 MB c/u</span>
+              </div>
+
+              {photoFiles.length > 0 && (
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  {photoFiles.map((p, i) => (
+                    <div key={i} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
+                      <img src={p.preview} alt={`Foto ${i + 1}`} className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removePhoto(i)}
+                        className="absolute top-1 right-1 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold leading-none transition"
+                      >
+                        ×
+                      </button>
+                      <span className="absolute bottom-1 left-1 bg-black/50 text-white text-[9px] px-1.5 py-0.5 rounded-full">
+                        {i + 1}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={handlePhotoAdd}
+              />
+
+              {photoFiles.length < 10 && (
+                <button
+                  type="button"
+                  onClick={() => photoInputRef.current?.click()}
+                  className="w-full py-3 border-2 border-dashed border-gray-200 hover:border-blue-300 rounded-xl text-sm text-gray-400 hover:text-blue-500 transition flex items-center justify-center gap-2"
+                >
+                  <Camera size={15} /> Agregar fotos
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Comentarios solo en la última sección */}
           {step === "mecanica" && (
             <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Comentarios finales</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Observaciones finales</label>
               <textarea
                 value={comentarios}
                 onChange={e => setComentarios(e.target.value)}
