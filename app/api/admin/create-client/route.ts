@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
@@ -9,7 +8,7 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
 
-  // Verificar que es admin usando el RPC probado
+  // Verificar rol admin via RPC
   const { data: myRole } = await supabase.rpc("get_my_role")
   if (myRole !== "admin") return NextResponse.json({ error: "Sin permisos" }, { status: 403 })
 
@@ -18,8 +17,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "El nombre es obligatorio" }, { status: 400 })
   }
 
-  const admin = createAdminClient()
-  const { data: client, error } = await admin.from("clients").insert({
+  const { data: client, error } = await supabase.from("clients").insert({
     full_name,
     rut: rut || null,
     email: email || null,

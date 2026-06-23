@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient as createFreshClient } from "@supabase/supabase-js"
 
 export async function POST(request: NextRequest) {
@@ -10,7 +9,7 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
 
-  // Verificar que es admin usando el RPC probado
+  // Verificar rol admin via RPC (evita admin client)
   const { data: myRole } = await supabase.rpc("get_my_role")
   if (myRole !== "admin") return NextResponse.json({ error: "Sin permisos" }, { status: 403 })
 
@@ -42,33 +41,35 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: createError.message }, { status: 400 })
   }
   if (!newUser.user) {
-    return NextResponse.json({ error: "No se pudo crear el usuario. Verifica que el email no esté ya registrado." }, { status: 400 })
+    return NextResponse.json({
+      error: "No se pudo crear el usuario. El email puede estar ya registrado.",
+    }, { status: 400 })
   }
 
-  const admin = createAdminClient()
+  const userId = newUser.user.id
 
-  // Auto-confirmar email vía función SQL
-  const { error: confirmError } = await admin.rpc("admin_confirm_user_email", {
-    target_user_id: newUser.user.id,
+  // Auto-confirmar email (SECURITY DEFINER — no requiere admin client)
+  const { error: confirmError } = await supabase.rpc("admin_confirm_user_email", {
+    target_user_id: userId,
   })
   if (confirmError) {
-    console.error("No se pudo auto-confirmar el email:", confirmError.message)
+    console.error("Confirmar email:", confirmError.message)
   }
 
-  // Guardar perfil con rol correcto (bypass RLS)
-  const { error: upsertError } = await admin.from("profiles").upsert({
-    id: newUser.user.id,
-    full_name,
-    email,
-    phone: phone || null,
-    role: userRole,
+  // Crear/actualizar perfil (SECURITY DEFINER — no requiere admin client)
+  const { error: profileError } = await supabase.rpc("admin_upsert_profile", {
+    p_id: userId,
+    p_full_name: full_name,
+    p_email: email,
+    p_phone: phone || null,
+    p_role: userRole,
   })
 
-  if (upsertError) {
+  if (profileError) {
     return NextResponse.json({
-      error: `Usuario creado pero error al guardar perfil: ${upsertError.message}`,
+      error: `Usuario creado pero error al guardar perfil: ${profileError.message}`,
     }, { status: 500 })
   }
 
-  return NextResponse.json({ success: true, userId: newUser.user.id })
+  return NextResponse.json({ success: true, userId })
 }
