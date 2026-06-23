@@ -26,7 +26,6 @@ export async function updateSession(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   const { pathname } = request.nextUrl
-
   const publicRoutes = ["/login", "/forgot-password", "/reset-password"]
   const isPublicRoute = publicRoutes.some(r => pathname.startsWith(r))
   const isPublicToken = pathname.startsWith("/p/") || pathname.startsWith("/q/")
@@ -38,40 +37,10 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single()
-
-    const role = profile?.role
-
-    if (isPublicRoute) {
-      const url = request.nextUrl.clone()
-      if (role === "admin") url.pathname = "/admin/dashboard"
-      else if (role === "inspector") url.pathname = "/inspector/dashboard"
-      else url.pathname = "/client/dashboard"
-      return NextResponse.redirect(url)
-    }
-
-    if (!role) return supabaseResponse
-
-    if (pathname.startsWith("/admin") && role !== "admin") {
-      const url = request.nextUrl.clone()
-      url.pathname = role === "inspector" ? "/inspector/dashboard" : "/client/dashboard"
-      return NextResponse.redirect(url)
-    }
-    if (pathname.startsWith("/inspector") && role !== "inspector" && role !== "admin") {
-      const url = request.nextUrl.clone()
-      url.pathname = "/client/dashboard"
-      return NextResponse.redirect(url)
-    }
-    if (pathname.startsWith("/client") && role !== "client") {
-      const url = request.nextUrl.clone()
-      url.pathname = role === "admin" ? "/admin/dashboard" : "/inspector/dashboard"
-      return NextResponse.redirect(url)
-    }
+  if (user && isPublicRoute) {
+    const url = request.nextUrl.clone()
+    url.pathname = "/"
+    return NextResponse.redirect(url)
   }
 
   return supabaseResponse
