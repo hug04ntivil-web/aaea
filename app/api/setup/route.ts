@@ -2,6 +2,10 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function GET() {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""
+  const keyInfo = { len: key.length, start: key.slice(0, 20), end: key.slice(-10), url }
+
   const admin = createAdminClient()
 
   const users = [
@@ -15,5 +19,5 @@ export async function GET() {
     results.push({ id: u.id, email: data?.user?.email, ok: !error, error: error?.message })
   }
 
-  return NextResponse.json({ results })
+  return NextResponse.json({ keyInfo, results })
 }
