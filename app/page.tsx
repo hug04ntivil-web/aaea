@@ -7,13 +7,9 @@ export default async function RootPage() {
 
   if (!user) redirect("/login")
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single()
+  const { data: role } = await supabase.rpc("get_my_role")
 
-  if (profile?.role === "admin") redirect("/admin/dashboard")
-  if (profile?.role === "inspector") redirect("/inspector/dashboard")
+  if (role === "admin") redirect("/admin/dashboard")
+  if (role === "inspector") redirect("/inspector/dashboard")
   redirect("/client/dashboard")
 }
