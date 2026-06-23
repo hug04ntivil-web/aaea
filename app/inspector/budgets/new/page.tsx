@@ -29,7 +29,10 @@ export default async function NewBudgetPage() {
         <BudgetForm
           inspectorId={user!.id}
           clients={clients ?? []}
-          inspections={inspections ?? []}
+          inspections={(inspections ?? []).map((i: any) => ({
+            id: i.id,
+            vehicles: Array.isArray(i.vehicles) ? i.vehicles[0] : i.vehicles,
+          }))}
         />
       </div>
     </AppShell>
