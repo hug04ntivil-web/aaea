@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import AppShell from "@/components/layout/app-shell"
 import Link from "next/link"
 import { Plus, Mail, Phone } from "lucide-react"
@@ -7,10 +6,9 @@ import { Plus, Mail, Phone } from "lucide-react"
 export default async function UsersPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const admin = createAdminClient()
-  const { data: profile } = await admin.from("profiles").select("full_name, role").eq("id", user!.id).single()
+  const { data: profile } = await supabase.from("profiles").select("full_name, role").eq("id", user!.id).single()
 
-  const { data: inspectors } = await admin
+  const { data: inspectors } = await supabase
     .from("profiles")
     .select("id, full_name, email, phone, role, created_at")
     .eq("role", "inspector")

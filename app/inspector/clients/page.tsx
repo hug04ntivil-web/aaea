@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import AppShell from "@/components/layout/app-shell"
 import { formatDate } from "@/lib/utils"
 
@@ -7,10 +6,9 @@ export default async function InspectorClientsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const admin = createAdminClient()
-  const { data: profile } = await admin.from("profiles").select("full_name").eq("id", user!.id).single()
+  const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user!.id).single()
 
-  const { data: inspections } = await admin
+  const { data: inspections } = await supabase
     .from("inspections")
     .select("client_id")
     .eq("inspector_id", user!.id)
@@ -18,7 +16,7 @@ export default async function InspectorClientsPage() {
   const clientIds = [...new Set(inspections?.map(i => i.client_id).filter(Boolean))]
 
   const { data: clients } = clientIds.length > 0
-    ? await admin.from("clients").select("id, full_name, rut, phone, email, created_at").in("id", clientIds).order("full_name")
+    ? await supabase.from("clients").select("id, full_name, rut, phone, email, created_at").in("id", clientIds).order("full_name")
     : { data: [] }
 
   return (

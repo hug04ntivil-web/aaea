@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import AppShell from "@/components/layout/app-shell"
 import Link from "next/link"
 import { formatDate } from "@/lib/utils"
@@ -8,10 +7,9 @@ export default async function AdminInspectionsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const admin = createAdminClient()
-  const { data: profile } = await admin.from("profiles").select("full_name").eq("id", user!.id).single()
+  const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user!.id).single()
 
-  const { data: inspections } = await admin
+  const { data: inspections } = await supabase
     .from("inspections")
     .select(`id, fecha_inspeccion, nota_final, nota_visual, nota_carroceria, nota_mecanica, status, vehicles(patente, marca, modelo, anio), clients(full_name), profiles(full_name)`)
     .order("created_at", { ascending: false })

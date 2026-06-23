@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import AppShell from "@/components/layout/app-shell"
 import Link from "next/link"
 import { Car, Receipt } from "lucide-react"
@@ -9,17 +8,16 @@ export default async function ClientDashboard() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const admin = createAdminClient()
-  const { data: profile } = await admin.from("profiles").select("full_name").eq("id", user!.id).single()
-  const { data: client } = await admin.from("clients").select("id").eq("profile_id", user!.id).single()
+  const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user!.id).single()
+  const { data: client } = await supabase.from("clients").select("id").eq("profile_id", user!.id).single()
   const clientId = client?.id
 
   const [{ data: inspections }, { data: budgets }] = await Promise.all([
     clientId
-      ? admin.from("inspections").select(`id, fecha_inspeccion, nota_final, status, vehicles(patente, marca, modelo, anio)`).eq("client_id", clientId).order("created_at", { ascending: false }).limit(10)
+      ? supabase.from("inspections").select(`id, fecha_inspeccion, nota_final, status, vehicles(patente, marca, modelo, anio)`).eq("client_id", clientId).order("created_at", { ascending: false }).limit(10)
       : { data: [] },
     clientId
-      ? admin.from("budgets").select(`id, numero, total, status, created_at`).eq("client_id", clientId).order("created_at", { ascending: false }).limit(5)
+      ? supabase.from("budgets").select(`id, numero, total, status, created_at`).eq("client_id", clientId).order("created_at", { ascending: false }).limit(5)
       : { data: [] },
   ])
 

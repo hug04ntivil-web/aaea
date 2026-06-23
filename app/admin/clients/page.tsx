@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import AppShell from "@/components/layout/app-shell"
 import { formatDate } from "@/lib/utils"
 
@@ -7,10 +6,9 @@ export default async function AdminClientsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const admin = createAdminClient()
-  const { data: profile } = await admin.from("profiles").select("full_name").eq("id", user!.id).single()
+  const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user!.id).single()
 
-  const { data: clients } = await admin
+  const { data: clients } = await supabase
     .from("clients")
     .select("id, full_name, rut, phone, email, created_at")
     .order("created_at", { ascending: false })

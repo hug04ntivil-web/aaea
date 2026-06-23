@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import AppShell from "@/components/layout/app-shell"
 import NewInspectionForm from "@/components/inspection/new-inspection-form"
 
@@ -7,14 +6,13 @@ export default async function NewInspectionPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const admin = createAdminClient()
-  const { data: profile } = await admin
+  const { data: profile } = await supabase
     .from("profiles")
     .select("full_name, role")
     .eq("id", user!.id)
     .single()
 
-  const { data: clients } = await admin
+  const { data: clients } = await supabase
     .from("clients")
     .select("id, full_name, rut, email, phone")
     .order("full_name")

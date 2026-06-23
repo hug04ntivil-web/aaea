@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { notFound } from "next/navigation"
 import AppShell from "@/components/layout/app-shell"
 import BudgetDetail from "@/components/budget/budget-detail"
@@ -11,10 +10,9 @@ export default async function AdminBudgetDetailPage({ params }: { params: Promis
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const admin = createAdminClient()
-  const { data: profile } = await admin.from("profiles").select("full_name").eq("id", user!.id).single()
+  const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user!.id).single()
 
-  const { data: budget } = await admin
+  const { data: budget } = await supabase
     .from("budgets")
     .select(`*, clients(full_name, rut, phone, email), profiles(full_name, signature_url), budget_items(*)`)
     .eq("id", id)

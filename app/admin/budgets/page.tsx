@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import AppShell from "@/components/layout/app-shell"
 import Link from "next/link"
 import { formatDate } from "@/lib/utils"
@@ -8,10 +7,9 @@ export default async function AdminBudgetsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const admin = createAdminClient()
-  const { data: profile } = await admin.from("profiles").select("full_name").eq("id", user!.id).single()
+  const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user!.id).single()
 
-  const { data: budgets } = await admin
+  const { data: budgets } = await supabase
     .from("budgets")
     .select(`id, numero, total_genuino, total_korea, total_multi, total, status, opcion_aceptada, created_at, clients(full_name), profiles(full_name)`)
     .order("created_at", { ascending: false })

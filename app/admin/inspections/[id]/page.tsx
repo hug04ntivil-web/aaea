@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { notFound } from "next/navigation"
 import AppShell from "@/components/layout/app-shell"
 import ScoreCard from "@/components/inspection/score-card"
@@ -12,10 +11,9 @@ export default async function AdminInspectionDetailPage({ params }: { params: Pr
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const admin = createAdminClient()
-  const { data: profile } = await admin.from("profiles").select("full_name").eq("id", user!.id).single()
+  const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user!.id).single()
 
-  const { data: ins } = await admin
+  const { data: ins } = await supabase
     .from("inspections")
     .select(`*, vehicles(*), clients(full_name, rut, phone, email), profiles(full_name)`)
     .eq("id", id)
@@ -23,7 +21,7 @@ export default async function AdminInspectionDetailPage({ params }: { params: Pr
 
   if (!ins) notFound()
 
-  const { data: items } = await admin
+  const { data: items } = await supabase
     .from("inspection_items")
     .select("*")
     .eq("inspection_id", id)

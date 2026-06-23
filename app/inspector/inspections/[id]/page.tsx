@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { notFound } from "next/navigation"
 import AppShell from "@/components/layout/app-shell"
 import ScoreCard from "@/components/inspection/score-card"
@@ -13,10 +12,9 @@ export default async function InspectionDetail({ params }: { params: Promise<{ i
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const admin = createAdminClient()
-  const { data: profile } = await admin.from("profiles").select("full_name, role").eq("id", user!.id).single()
+  const { data: profile } = await supabase.from("profiles").select("full_name, role").eq("id", user!.id).single()
 
-  const { data: inspection } = await admin
+  const { data: inspection } = await supabase
     .from("inspections")
     .select(`*, vehicles(*), clients(full_name, email, phone), profiles(full_name), inspection_items(*)`)
     .eq("id", id)

@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import AppShell from "@/components/layout/app-shell"
 import { ClipboardList, Users, Receipt, CheckCircle, Clock } from "lucide-react"
 import { formatDate } from "@/lib/utils"
@@ -8,17 +7,16 @@ export default async function AdminDashboard() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const admin = createAdminClient()
-  const { data: profile } = await admin.from("profiles").select("full_name, role").eq("id", user!.id).single()
+  const { data: profile } = await supabase.from("profiles").select("full_name, role").eq("id", user!.id).single()
 
   const [{ count: totalInspections }, { count: totalClients }, { count: totalBudgets }, { count: acceptedBudgets }] = await Promise.all([
-    admin.from("inspections").select("*", { count: "exact", head: true }),
-    admin.from("clients").select("*", { count: "exact", head: true }),
-    admin.from("budgets").select("*", { count: "exact", head: true }),
-    admin.from("budgets").select("*", { count: "exact", head: true }).eq("status", "accepted"),
+    supabase.from("inspections").select("*", { count: "exact", head: true }),
+    supabase.from("clients").select("*", { count: "exact", head: true }),
+    supabase.from("budgets").select("*", { count: "exact", head: true }),
+    supabase.from("budgets").select("*", { count: "exact", head: true }).eq("status", "accepted"),
   ])
 
-  const { data: recentInspections } = await admin
+  const { data: recentInspections } = await supabase
     .from("inspections")
     .select(`id, fecha_inspeccion, nota_final, status, vehicles(patente, marca, modelo), clients(full_name), profiles(full_name)`)
     .order("created_at", { ascending: false })

@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import AppShell from "@/components/layout/app-shell"
 import Link from "next/link"
 import { Plus, ClipboardList, Receipt, Users, Clock } from "lucide-react"
@@ -9,16 +8,15 @@ export default async function InspectorDashboard() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const admin = createAdminClient()
-  const { data: profile } = await admin.from("profiles").select("full_name").eq("id", user!.id).single()
+  const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user!.id).single()
 
   const [{ count: myInspections }, { count: myBudgets }, { count: myClients }] = await Promise.all([
-    admin.from("inspections").select("*", { count: "exact", head: true }).eq("inspector_id", user!.id),
-    admin.from("budgets").select("*", { count: "exact", head: true }).eq("inspector_id", user!.id),
-    admin.from("clients").select("*", { count: "exact", head: true }).eq("created_by", user!.id),
+    supabase.from("inspections").select("*", { count: "exact", head: true }).eq("inspector_id", user!.id),
+    supabase.from("budgets").select("*", { count: "exact", head: true }).eq("inspector_id", user!.id),
+    supabase.from("clients").select("*", { count: "exact", head: true }).eq("created_by", user!.id),
   ])
 
-  const { data: recent } = await admin
+  const { data: recent } = await supabase
     .from("inspections")
     .select(`id, fecha_inspeccion, nota_final, status, vehicles(patente, marca, modelo), clients(full_name)`)
     .eq("inspector_id", user!.id)

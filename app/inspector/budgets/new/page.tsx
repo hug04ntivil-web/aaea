@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import AppShell from "@/components/layout/app-shell"
 import BudgetForm from "@/components/budget/budget-form"
 import Link from "next/link"
@@ -8,12 +7,11 @@ import { ArrowLeft } from "lucide-react"
 export default async function NewBudgetPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const admin = createAdminClient()
-  const { data: profile } = await admin.from("profiles").select("full_name, role").eq("id", user!.id).single()
+  const { data: profile } = await supabase.from("profiles").select("full_name, role").eq("id", user!.id).single()
 
   const [{ data: clients }, { data: inspections }] = await Promise.all([
-    admin.from("clients").select("id, full_name, phone").order("full_name"),
-    admin.from("inspections")
+    supabase.from("clients").select("id, full_name, phone").order("full_name"),
+    supabase.from("inspections")
       .select("id, vehicles(patente, marca, modelo)")
       .eq("inspector_id", user!.id)
       .order("created_at", { ascending: false })
