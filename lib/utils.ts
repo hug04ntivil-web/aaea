@@ -38,6 +38,34 @@ export function calcNotaFinal(visual: number, carroceria: number, mecanica: numb
   return Math.round(((visual + carroceria + mecanica) / 3) * 10) / 10
 }
 
+// Estados considerados "buenos" en la inspección
+const GOOD_STATES = new Set([
+  "Sin Daño", "Bueno", "Normal", "Funciona", "A nivel",
+  "No Encendido", "Presenta", "No Presenta",
+])
+// Estados intermedios (descuento parcial)
+const WARN_STATES = new Set(["Con Daño", "Regular"])
+// Estados malos (descuento total)
+const BAD_STATES = new Set(["Malo", "Anormal", "No Funciona", "Bajo nivel", "Encendido"])
+
+export function calcSectionScore(
+  sectionItems: Array<{ key: string }>,
+  itemStates: Record<string, { estado: string; observaciones: string }>
+): number {
+  let points = 0
+  let total = 0
+  for (const item of sectionItems) {
+    const estado = itemStates[item.key]?.estado ?? "N/A"
+    if (estado === "N/A") continue
+    total++
+    if (GOOD_STATES.has(estado)) points += 1
+    else if (WARN_STATES.has(estado)) points += 0.6
+    // BAD_STATES → 0 points
+  }
+  if (total === 0) return 7.0
+  return Math.min(7.0, Math.round((7 * points / total) * 10) / 10)
+}
+
 export function getNotaColor(nota: number): string {
   if (nota >= 6.5) return "text-green-600"
   if (nota >= 5.0) return "text-yellow-600"

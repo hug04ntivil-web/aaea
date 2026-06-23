@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { calcNotaFinal } from "@/lib/utils"
 import { INSPECTION_ITEMS } from "@/lib/inspection-items"
 
@@ -9,13 +8,12 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
 
-  const admin = createAdminClient()
   const body = await request.json()
   const { vehicle, newClient, selectedClientId, isNewClient, notaVisual, notaCarroceria, notaMecanica, comentarios, items, inspectorId } = body
 
   try {
-    // 1. Guardar / actualizar vehículo
-    const { data: savedVehicle, error: vErr } = await admin
+    // 1. Guardar / actualizar vehículo (server client con RLS de inspector/admin)
+    const { data: savedVehicle, error: vErr } = await supabase
       .from("vehicles")
       .upsert({
         patente: vehicle.patente,
@@ -47,7 +45,7 @@ export async function POST(request: NextRequest) {
     // 2. Cliente
     let clientId = selectedClientId
     if (isNewClient) {
-      const { data: savedClient, error: cErr } = await admin
+      const { data: savedClient, error: cErr } = await supabase
         .from("clients")
         .insert({ ...newClient, created_by: inspectorId })
         .select()
@@ -61,7 +59,7 @@ export async function POST(request: NextRequest) {
     const { randomBytes } = await import("crypto")
     const publicToken = randomBytes(16).toString("hex")
 
-    const { data: inspection, error: iErr } = await admin
+    const { data: inspection, error: iErr } = await supabase
       .from("inspections")
       .insert({
         vehicle_id: savedVehicle.id,
@@ -80,7 +78,7 @@ export async function POST(request: NextRequest) {
       .single()
     if (iErr) throw new Error(`Inspección: ${iErr.message}`)
 
-    // 4. Ítems — enriquecer con metadata de la lista maestra
+    // 4. Ítems
     const itemsToInsert = INSPECTION_ITEMS.map(item => ({
       inspection_id: inspection.id,
       section: item.section,
@@ -91,7 +89,7 @@ export async function POST(request: NextRequest) {
       observaciones: items[item.key]?.observaciones ?? "",
       sort_order: item.sortOrder,
     }))
-    const { error: iiErr } = await admin.from("inspection_items").insert(itemsToInsert)
+    const { error: iiErr } = await supabase.from("inspection_items").insert(itemsToInsert)
     if (iiErr) throw new Error(`Ítems: ${iiErr.message}`)
 
     return NextResponse.json({ success: true, inspectionId: inspection.id })
