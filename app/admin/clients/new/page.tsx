@@ -7,82 +7,61 @@ import { toast } from "sonner"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
-const ROLES = [
-  { value: "inspector", label: "Inspector" },
-  { value: "admin", label: "Administrador" },
-]
-
-export default function NewUserPage() {
+export default function NewClientPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
     full_name: "",
+    rut: "",
     email: "",
     phone: "",
-    password: "",
-    role: "inspector",
+    city: "Santiago",
+    notes: "",
   })
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }))
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (form.password.length < 8) {
-      toast.error("La contraseña debe tener al menos 8 caracteres")
+    if (!form.full_name.trim()) {
+      toast.error("El nombre es obligatorio")
       return
     }
     setLoading(true)
     try {
-      const res = await fetch("/api/admin/create-user", {
+      const res = await fetch("/api/admin/create-client", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       })
       const data = await res.json()
       if (!res.ok) {
-        toast.error(data.error ?? "Error al crear usuario")
+        toast.error(data.error ?? "Error al crear cliente")
         return
       }
-      const roleLabel = ROLES.find(r => r.value === form.role)?.label ?? "Usuario"
-      toast.success(`${roleLabel} creado correctamente`)
-      router.push("/admin/users")
+      toast.success("Cliente creado correctamente")
+      router.push("/admin/clients")
       router.refresh()
     } finally {
       setLoading(false)
     }
   }
 
-  const selectedRoleLabel = ROLES.find(r => r.value === form.role)?.label ?? "Inspector"
-
   return (
-    <AppShell role="admin" userName="" pageTitle={`Nuevo ${selectedRoleLabel.toLowerCase()}`}>
+    <AppShell role="admin" userName="" pageTitle="Nuevo cliente">
       <div className="max-w-lg mx-auto space-y-4">
         <Link
-          href="/admin/users"
+          href="/admin/clients"
           className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition"
         >
-          <ArrowLeft size={15} /> Volver
+          <ArrowLeft size={15} /> Volver a clientes
         </Link>
 
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-          <h2 className="font-semibold text-gray-800 mb-5">Crear usuario</h2>
+          <h2 className="font-semibold text-gray-800 mb-5">Crear cliente</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Rol *</label>
-              <select
-                name="role"
-                value={form.role}
-                onChange={handleChange}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              >
-                {ROLES.map(r => (
-                  <option key={r.value} value={r.value}>{r.label}</option>
-                ))}
-              </select>
-            </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Nombre completo *</label>
@@ -97,14 +76,24 @@ export default function NewUserPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Correo electrónico *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">RUT</label>
+              <input
+                name="rut"
+                value={form.rut}
+                onChange={handleChange}
+                placeholder="12.345.678-9"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Correo electrónico</label>
               <input
                 name="email"
                 type="email"
-                required
                 value={form.email}
                 onChange={handleChange}
-                placeholder="usuario@correo.com"
+                placeholder="cliente@correo.com"
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -122,17 +111,26 @@ export default function NewUserPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña temporal *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ciudad</label>
               <input
-                name="password"
-                type="password"
-                required
-                value={form.password}
+                name="city"
+                value={form.city}
                 onChange={handleChange}
-                placeholder="Mínimo 8 caracteres"
+                placeholder="Santiago"
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              <p className="text-xs text-gray-400 mt-1">El usuario puede cambiarla desde su perfil.</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
+              <textarea
+                name="notes"
+                value={form.notes}
+                onChange={handleChange}
+                placeholder="Información adicional..."
+                rows={3}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              />
             </div>
 
             <button
@@ -140,7 +138,7 @@ export default function NewUserPage() {
               disabled={loading}
               className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium text-sm transition disabled:opacity-50"
             >
-              {loading ? "Creando..." : `Crear ${selectedRoleLabel.toLowerCase()}`}
+              {loading ? "Guardando..." : "Crear cliente"}
             </button>
           </form>
         </div>

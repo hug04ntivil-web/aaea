@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server"
 import AppShell from "@/components/layout/app-shell"
 import { formatDate } from "@/lib/utils"
+import Link from "next/link"
+import { Plus } from "lucide-react"
 
 export default async function AdminClientsPage() {
   const supabase = await createClient()
@@ -17,9 +19,17 @@ export default async function AdminClientsPage() {
   return (
     <AppShell role="admin" userName={profile?.full_name ?? "Admin"} pageTitle="Clientes">
       <div className="space-y-4">
-        <div>
-          <h2 className="text-xl font-bold text-gray-800">Clientes</h2>
-          <p className="text-sm text-gray-500">{clients?.length ?? 0} registrados</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-gray-800">Clientes</h2>
+            <p className="text-sm text-gray-500">{clients?.length ?? 0} registrados</p>
+          </div>
+          <Link
+            href="/admin/clients/new"
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition shadow-sm"
+          >
+            <Plus size={15} /> Nuevo cliente
+          </Link>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
@@ -57,7 +67,12 @@ export default async function AdminClientsPage() {
               </table>
             </div>
           ) : (
-            <div className="p-10 text-center text-gray-400 text-sm">No hay clientes aún</div>
+            <div className="p-10 text-center">
+              <p className="text-gray-400 text-sm mb-3">No hay clientes registrados</p>
+              <Link href="/admin/clients/new" className="text-blue-600 text-sm hover:underline font-medium">
+                Crear el primero →
+              </Link>
+            </div>
           )}
         </div>
       </div>
