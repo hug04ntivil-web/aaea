@@ -1,14 +1,5 @@
 import { createServerClient } from "@supabase/ssr"
-import { createClient as createAdminSupabase } from "@supabase/supabase-js"
 import { NextResponse, type NextRequest } from "next/server"
-
-function getAdminClient() {
-  return createAdminSupabase(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
-}
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -48,8 +39,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user) {
-    const admin = getAdminClient()
-    const { data: profile } = await admin
+    const { data: profile } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
