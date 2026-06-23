@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server"
 import AppShell from "@/components/layout/app-shell"
 import Link from "next/link"
 import { formatDate } from "@/lib/utils"
+import { RowActions } from "@/components/admin/row-actions"
 
 export default async function AdminInspectionsPage() {
   const supabase = await createClient()
@@ -11,7 +12,7 @@ export default async function AdminInspectionsPage() {
 
   const { data: inspections } = await supabase
     .from("inspections")
-    .select(`id, fecha_inspeccion, nota_final, nota_visual, nota_carroceria, nota_mecanica, status, vehicles(patente, marca, modelo, anio), clients(full_name), profiles(full_name)`)
+    .select(`id, fecha_inspeccion, nota_final, status, vehicles(patente, marca, modelo, anio), clients(full_name), profiles(full_name)`)
     .order("created_at", { ascending: false })
     .limit(100)
 
@@ -60,10 +61,16 @@ export default async function AdminInspectionsPage() {
                           {ins.status === "draft" ? "Borrador" : ins.status === "completed" ? "Completa" : "Enviada"}
                         </span>
                       </td>
-                      <td className="px-3 py-3 text-right">
-                        <Link href={`/admin/inspections/${ins.id}`} className="text-xs text-blue-600 hover:text-blue-700 font-medium">
-                          Ver →
-                        </Link>
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-2 justify-end">
+                          <Link href={`/admin/inspections/${ins.id}`} className="text-xs text-blue-600 hover:text-blue-700 font-medium">
+                            Ver →
+                          </Link>
+                          <RowActions
+                            deleteUrl={`/api/admin/inspections/${ins.id}`}
+                            deleteLabel="¿Eliminar esta inspección?"
+                          />
+                        </div>
                       </td>
                     </tr>
                   ))}

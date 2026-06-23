@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server"
 import AppShell from "@/components/layout/app-shell"
 import Link from "next/link"
 import { Plus, Mail, Phone } from "lucide-react"
+import { RowActions } from "@/components/admin/row-actions"
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Admin",
@@ -73,6 +74,11 @@ export default async function UsersPage() {
                   <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${ROLE_COLORS[u.role] ?? "bg-gray-50 text-gray-700"}`}>
                     {ROLE_LABELS[u.role] ?? u.role}
                   </span>
+                  <RowActions
+                    editUrl={`/admin/users/${u.id}/edit`}
+                    deleteUrl={`/api/admin/users/${u.id}`}
+                    deleteLabel="¿Eliminar este usuario?"
+                  />
                 </div>
               ))}
             </div>

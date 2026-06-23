@@ -3,6 +3,7 @@ import AppShell from "@/components/layout/app-shell"
 import { formatDate } from "@/lib/utils"
 import Link from "next/link"
 import { Plus } from "lucide-react"
+import { RowActions } from "@/components/admin/row-actions"
 
 export default async function AdminClientsPage() {
   const supabase = await createClient()
@@ -12,7 +13,7 @@ export default async function AdminClientsPage() {
 
   const { data: clients } = await supabase
     .from("clients")
-    .select("id, full_name, rut, phone, email, created_at")
+    .select("id, full_name, rut, phone, email, city, created_at")
     .order("created_at", { ascending: false })
     .limit(200)
 
@@ -42,7 +43,9 @@ export default async function AdminClientsPage() {
                     <th className="px-3 py-3 text-left">RUT</th>
                     <th className="px-3 py-3 text-left">Teléfono</th>
                     <th className="px-3 py-3 text-left">Email</th>
+                    <th className="px-3 py-3 text-left">Ciudad</th>
                     <th className="px-3 py-3 text-left">Registrado</th>
+                    <th className="px-3 py-3"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -51,16 +54,20 @@ export default async function AdminClientsPage() {
                       <td className="px-4 py-3 font-semibold text-gray-800">{c.full_name}</td>
                       <td className="px-3 py-3 text-gray-600">{c.rut ?? "—"}</td>
                       <td className="px-3 py-3 text-gray-600">
-                        {c.phone ? (
-                          <a href={`tel:${c.phone}`} className="text-blue-600 hover:underline">{c.phone}</a>
-                        ) : "—"}
+                        {c.phone ? <a href={`tel:${c.phone}`} className="text-blue-600 hover:underline">{c.phone}</a> : "—"}
                       </td>
                       <td className="px-3 py-3 text-gray-600">
-                        {c.email ? (
-                          <a href={`mailto:${c.email}`} className="text-blue-600 hover:underline">{c.email}</a>
-                        ) : "—"}
+                        {c.email ? <a href={`mailto:${c.email}`} className="text-blue-600 hover:underline">{c.email}</a> : "—"}
                       </td>
+                      <td className="px-3 py-3 text-gray-600">{c.city ?? "—"}</td>
                       <td className="px-3 py-3 text-gray-500">{formatDate(c.created_at)}</td>
+                      <td className="px-3 py-3">
+                        <RowActions
+                          editUrl={`/admin/clients/${c.id}/edit`}
+                          deleteUrl={`/api/admin/clients/${c.id}`}
+                          deleteLabel="¿Eliminar este cliente?"
+                        />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
