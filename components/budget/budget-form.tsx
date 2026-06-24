@@ -36,6 +36,8 @@ interface Props {
   clients: Client[]
   inspections: Inspection[]
   settings: Record<string, string>
+  initialBudget?: any
+  mode?: "create" | "edit"
 }
 
 const emptyItem = (): BudgetItem => ({
@@ -67,25 +69,67 @@ function calcItem3(item: BudgetItem) {
   }
 }
 
-export default function BudgetForm({ clients, inspections, settings }: Props) {
+export default function BudgetForm({ clients, inspections, settings, initialBudget, mode = "create" }: Props) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
 
-  const [clientMode, setClientMode] = useState<"registrado" | "libre">("registrado")
-  const [clientId, setClientId] = useState("")
-  const [clienteLibre, setClienteLibre] = useState<ClienteLibre>(emptyClienteLibre())
-  const [inspectionId, setInspectionId] = useState("")
-  const [vehiculo, setVehiculo] = useState<VehiculoData>(emptyVehiculo())
+  function initFromBudget(b: any) {
+    const client = b.clients ?? null
+    const hasRegistered = !!b.client_id
+    const initItems: BudgetItem[] = (b.budget_items ?? [])
+      .sort((a: any, z: any) => a.orden - z.orden)
+      .map((i: any) => ({
+        descripcion: i.descripcion ?? "",
+        gestion: i.gestion ?? "MECÁNICO",
+        gestion_custom: i.gestion_custom ?? "",
+        rep_original: i.rep_genuino ? String(i.rep_genuino) : "",
+        rep_alternativo: i.rep_korea ? String(i.rep_korea) : "",
+        rep_otro: i.rep_multi ? String(i.rep_multi) : "",
+        val_mano_obra: i.val_mano_obra ? String(i.val_mano_obra) : "",
+        dcto_pct: i.dcto_pct ? String(i.dcto_pct) : "",
+        notas: i.notas ?? "",
+      }))
+    return {
+      clientMode: hasRegistered ? "registrado" as const : "libre" as const,
+      clientId: b.client_id ?? "",
+      clienteLibre: {
+        nombre: b.cliente_nombre ?? "", rut: b.cliente_rut ?? "",
+        telefono: b.cliente_telefono ?? "", email: b.cliente_email ?? "",
+        ciudad: b.cliente_ciudad ?? "", direccion: b.cliente_direccion ?? "",
+      },
+      vehiculo: {
+        patente: b.vehicle_patente ?? "", marca: b.vehicle_marca ?? "",
+        modelo: b.vehicle_modelo ?? "", anio: b.vehicle_anio ? String(b.vehicle_anio) : "",
+        version: b.vehicle_version ?? "", vin: b.vehicle_vin ?? "",
+        num_motor: b.vehicle_num_motor ?? "", color: b.vehicle_color ?? "",
+        km: b.vehicle_km ? String(b.vehicle_km) : "",
+      },
+      items: initItems.length ? initItems : Array.from({ length: 10 }, emptyItem),
+      ivaPct: Number(b.iva_pct ?? 19),
+      descuentoGlobal: b.descuento_global ? String(b.descuento_global) : "",
+      formaPago: b.forma_pago ?? "Efectivo o Transferencia",
+      vigenciaDias: b.vigencia_dias ? String(b.vigencia_dias) : "30",
+      descripcionServicio: b.descripcion_servicio ?? "",
+    }
+  }
+
+  const init = initialBudget ? initFromBudget(initialBudget) : null
+
+  const [clientMode, setClientMode] = useState<"registrado" | "libre">(init?.clientMode ?? "registrado")
+  const [clientId, setClientId] = useState(init?.clientId ?? "")
+  const [clienteLibre, setClienteLibre] = useState<ClienteLibre>(init?.clienteLibre ?? emptyClienteLibre())
+  const [inspectionId, setInspectionId] = useState(initialBudget?.inspection_id ?? "")
+  const [vehiculo, setVehiculo] = useState<VehiculoData>(init?.vehiculo ?? emptyVehiculo())
   const [buscarPatente, setBuscarPatente] = useState("")
   const [buscandoVehiculo, setBuscandoVehiculo] = useState(false)
-  const [showVehicleManual, setShowVehicleManual] = useState(false)
-  const [items, setItems] = useState<BudgetItem[]>(() => Array.from({ length: 20 }, emptyItem))
-  const [ivaPct, setIvaPct] = useState(Number(settings.iva_pct ?? "19"))
-  const [descuentoGlobal, setDescuentoGlobal] = useState("")
-  const [formaPago, setFormaPago] = useState("Efectivo o Transferencia")
-  const [vigenciaDias, setVigenciaDias] = useState("30")
-  const [descripcionServicio, setDescripcionServicio] = useState("")
+  const [showVehicleManual, setShowVehicleManual] = useState(!!initialBudget?.vehicle_patente)
+  const [items, setItems] = useState<BudgetItem[]>(init?.items ?? Array.from({ length: 10 }, emptyItem))
+  const [ivaPct, setIvaPct] = useState(init?.ivaPct ?? Number(settings.iva_pct ?? "19"))
+  const [descuentoGlobal, setDescuentoGlobal] = useState(init?.descuentoGlobal ?? "")
+  const [formaPago, setFormaPago] = useState(init?.formaPago ?? "Efectivo o Transferencia")
+  const [vigenciaDias, setVigenciaDias] = useState(init?.vigenciaDias ?? "30")
+  const [descripcionServicio, setDescripcionServicio] = useState(init?.descripcionServicio ?? "")
 
   useEffect(() => {
     if (!inspectionId) return
@@ -171,24 +215,38 @@ export default function BudgetForm({ clients, inspections, settings }: Props) {
     if (!activeItems.length) { toast.error("Agrega al menos un ítem con datos"); return }
     setSaving(true)
     try {
-      const res = await fetch("/api/budgets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientId: clientMode === "registrado" ? clientId : null,
-          clienteLibre: clientMode === "libre" ? clienteLibre : null,
-          vehiculo, inspectionId: inspectionId || null,
-          items: activeItems, ivaPct, descuentoGlobal: dto,
-          formaPago, vigenciaDias: Number(vigenciaDias), descripcionServicio,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      toast.success(`Presupuesto ${data.numero} creado`)
-      router.push(`/inspector/budgets/${data.budgetId}`)
-      router.refresh()
+      const payload = {
+        clientId: clientMode === "registrado" ? clientId : null,
+        clienteLibre: clientMode === "libre" ? clienteLibre : null,
+        vehiculo, inspectionId: inspectionId || null,
+        items: activeItems, ivaPct, descuentoGlobal: dto,
+        formaPago, vigenciaDias: Number(vigenciaDias), descripcionServicio,
+      }
+      if (mode === "edit" && initialBudget?.id) {
+        const res = await fetch(`/api/budgets/${initialBudget.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error)
+        toast.success("Presupuesto actualizado")
+        router.push(`/inspector/budgets/${initialBudget.id}`)
+        router.refresh()
+      } else {
+        const res = await fetch("/api/budgets", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error)
+        toast.success(`Presupuesto ${data.numero} creado`)
+        router.push(`/inspector/budgets/${data.budgetId}`)
+        router.refresh()
+      }
     } catch (err: any) {
-      toast.error(err.message ?? "Error al crear presupuesto")
+      toast.error(err.message ?? "Error al guardar presupuesto")
     } finally { setSaving(false) }
   }
 
@@ -310,15 +368,16 @@ export default function BudgetForm({ clients, inspections, settings }: Props) {
 
         {/* Desktop header */}
         <div className="hidden xl:grid gap-1 px-3 py-2 bg-gray-50 text-[10px] font-bold text-gray-500 uppercase tracking-wide border-b border-gray-100"
-          style={{ gridTemplateColumns: "1.5rem 1fr 6rem 5.5rem 5.5rem 5.5rem 5rem 3.5rem auto" }}>
+          style={{ gridTemplateColumns: "1.5rem 1fr 4.5rem 4.5rem 4.5rem 4.5rem 4rem 2.5rem 1fr auto" }}>
           <span className="text-center">#</span>
           <span>Descripción / Trabajo</span>
           <span className="text-center">Gestión</span>
           <span className="text-right text-blue-600">$ Original</span>
-          <span className="text-right text-amber-600">$ Alternativo</span>
+          <span className="text-right text-amber-600">$ Alt.</span>
           <span className="text-right text-green-600">$ Otro</span>
-          <span className="text-right">$ Mano obra</span>
-          <span className="text-center">Dcto%</span>
+          <span className="text-right">$ M.Obra</span>
+          <span className="text-center">Dc%</span>
+          <span className="text-gray-400">Desc. trabajo</span>
           <span></span>
         </div>
 
@@ -328,41 +387,37 @@ export default function BudgetForm({ clients, inspections, settings }: Props) {
             return (
               <div key={i} className={`px-3 py-2 transition-opacity ${!hasData ? "opacity-40 hover:opacity-100 focus-within:opacity-100" : ""}`}>
                 {/* Desktop */}
-                <div className="hidden xl:grid gap-1 items-start"
-                  style={{ gridTemplateColumns: "1.5rem 1fr 6rem 5.5rem 5.5rem 5.5rem 5rem 3.5rem auto" }}>
-                  <span className="text-xs text-gray-400 text-center pt-2.5">{i + 1}</span>
-                  <div className="space-y-1">
-                    <input placeholder={`Ítem ${i + 1}...`} value={item.descripcion}
-                      onChange={e => updateItem(i, "descripcion", e.target.value)}
-                      className="w-full px-2 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                    {hasData && (
-                      <input placeholder="Notas / descripción trabajo" value={item.notas}
-                        onChange={e => updateItem(i, "notas", e.target.value)}
-                        className="w-full px-2 py-1.5 border border-gray-100 rounded text-xs text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-400" />
-                    )}
-                  </div>
+                <div className="hidden xl:grid gap-1 items-center"
+                  style={{ gridTemplateColumns: "1.5rem 1fr 4.5rem 4.5rem 4.5rem 4.5rem 4rem 2.5rem 1fr auto" }}>
+                  <span className="text-xs text-gray-400 text-center">{i + 1}</span>
+                  <input placeholder={`Ítem ${i + 1}...`} value={item.descripcion}
+                    onChange={e => updateItem(i, "descripcion", e.target.value)}
+                    className="w-full px-2 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
                   <div className="space-y-1">
                     <select value={item.gestion} onChange={e => updateItem(i, "gestion", e.target.value as any)}
-                      className="w-full px-2 py-2 border border-gray-200 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+                      className="w-full px-1.5 py-2 border border-gray-200 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
                       <option>MECÁNICO</option><option>CLIENTE</option><option>OTRO</option>
                     </select>
                     {item.gestion === "OTRO" && (
-                      <input placeholder="Especificar..." value={item.gestion_custom}
+                      <input placeholder="Especif..." value={item.gestion_custom}
                         onChange={e => updateItem(i, "gestion_custom", e.target.value)}
-                        className="w-full px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none" />
+                        className="w-full px-1.5 py-1 border border-gray-200 rounded text-xs focus:outline-none" />
                     )}
                   </div>
                   {(["rep_original", "rep_alternativo", "rep_otro", "val_mano_obra"] as const).map((field, fi) => (
                     <input key={field} type="number" min="0" value={item[field]}
                       onChange={e => updateItem(i, field, e.target.value)}
                       placeholder="0"
-                      className={`w-full px-2 py-2 border rounded text-sm text-right focus:outline-none focus:ring-1 ${fi === 0 ? "border-blue-200 focus:ring-blue-400" : fi === 1 ? "border-amber-200 focus:ring-amber-400" : fi === 2 ? "border-green-200 focus:ring-green-400" : "border-gray-200 focus:ring-blue-500"}`} />
+                      className={`w-full px-2 py-2 border rounded text-xs text-right focus:outline-none focus:ring-1 ${fi === 0 ? "border-blue-200 focus:ring-blue-400" : fi === 1 ? "border-amber-200 focus:ring-amber-400" : fi === 2 ? "border-green-200 focus:ring-green-400" : "border-gray-200 focus:ring-blue-500"}`} />
                   ))}
                   <input type="number" min="0" max="100" value={item.dcto_pct}
                     onChange={e => updateItem(i, "dcto_pct", e.target.value)}
                     placeholder="0"
-                    className="w-full px-2 py-2 border border-gray-200 rounded text-sm text-center focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                  <button type="button" onClick={() => removeItem(i)} className="pt-2 p-1 text-gray-300 hover:text-red-500 transition">
+                    className="w-full px-1.5 py-2 border border-gray-200 rounded text-xs text-center focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                  <input placeholder="Desc. trabajo..." value={item.notas}
+                    onChange={e => updateItem(i, "notas", e.target.value)}
+                    className="w-full px-2 py-2 border border-gray-100 rounded text-xs text-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                  <button type="button" onClick={() => removeItem(i)} className="p-1 text-gray-300 hover:text-red-500 transition">
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -481,7 +536,7 @@ export default function BudgetForm({ clients, inspections, settings }: Props) {
         </button>
         <button type="button" onClick={handleSubmit} disabled={saving}
           className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium text-sm transition disabled:opacity-50 shadow-sm">
-          {saving ? "Guardando..." : "Crear presupuesto"}
+          {saving ? "Guardando..." : mode === "edit" ? "Guardar cambios" : "Crear presupuesto"}
         </button>
       </div>
     </div>

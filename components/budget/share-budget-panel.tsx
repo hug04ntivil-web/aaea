@@ -108,11 +108,30 @@ export default function ShareBudgetPanel({
     setShowWaOptions(false)
   }
 
-  function waSendQrImage() {
-    // Generate QR if not yet done, then show download + share instructions
+  async function waSendQrImage() {
     setShowWaOptions(false)
-    setShowQr(true)
-    toast.info("Descarga el QR y compártelo por WhatsApp")
+    try {
+      let url = qrDataUrl
+      if (!url) {
+        const QR = await import("qrcode")
+        url = await QR.toDataURL(pdfUrl, { width: 280, margin: 2, color: { dark: "#0f172a", light: "#ffffff" } })
+        setQrDataUrl(url)
+      }
+      const res = await fetch(url)
+      const blob = await res.blob()
+      const file = new File([blob], `qr-${budgetNumero}.png`, { type: "image/png" })
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: `QR Presupuesto ${budgetNumero}` })
+      } else {
+        setShowQr(true)
+        toast.info("Descarga el QR y compártelo por WhatsApp")
+      }
+    } catch (err: any) {
+      if (err?.name !== "AbortError") {
+        setShowQr(true)
+        toast.info("Descarga el QR y compártelo por WhatsApp")
+      }
+    }
   }
 
   async function shareQrNative() {

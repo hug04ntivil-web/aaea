@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import PDFDocument from "pdfkit"
-import QRCode from "qrcode"
 
 function fmt(n: number | null | undefined) { return Math.round(n ?? 0).toLocaleString("es-CL") }
 function fmtDate(d: string) {
@@ -12,7 +11,6 @@ function fmtDate(d: string) {
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
-  const baseUrl = req.nextUrl.origin
 
   const [{ data: budget }, { data: settingsRows }] = await Promise.all([
     supabase.from("budgets").select(`
@@ -27,13 +25,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const S: Record<string, string> = {}
   settingsRows?.forEach(r => { S[r.key] = r.value ?? "" })
-
-  const pdfPublicUrl = `${baseUrl}/api/pdf/budget/${id}`
-
-  // QR apunta al propio PDF
-  let qrBuf: Buffer | null = null
-  try { qrBuf = await QRCode.toBuffer(pdfPublicUrl, { type: "png", width: 80, margin: 1 }) as Buffer }
-  catch { /* sin QR */ }
 
   let logoBuf: Buffer | null = null
   if (S.company_logo_url) {
@@ -53,14 +44,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   // ── LANDSCAPE LETTER ──────────────────────────────────────────────────
-  // 792 × 612 pts | margins 30 | PAGE_W = 732, PAGE_H = 552
+  // 792 × 612 pts | margins 30 | PAGE_W = 732, usable bottom = 582
   const MARGIN = 30
+  const PAGE_H_USABLE = 582  // 612 - 30
   const doc = new PDFDocument({ margin: MARGIN, size: "LETTER", layout: "landscape" })
   const chunks: Buffer[] = []
   doc.on("data", (c: Buffer) => chunks.push(c))
 
   const PAGE_W = 792 - MARGIN * 2  // 732
-  const LX = MARGIN                // left x = 30
+  const LX = MARGIN
 
   const client = budget.clients ?? null
   const clienteNombre  = client?.full_name  ?? budget.cliente_nombre   ?? "—"
@@ -100,10 +92,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   await new Promise<void>(resolve => {
     doc.on("end", resolve)
 
-    // ── HEADER ────────────────────────────────────────────────────────────
+    // ── HEADER — todo sky blue ────────────────────────────────────────────
     const HDR_H = 58
+    // Solo un rect, sin franja oscura abajo
     doc.rect(LX, MARGIN, PAGE_W, HDR_H).fill("#0ea5e9")
-    doc.rect(LX, MARGIN + HDR_H - 16, PAGE_W, 16).fill("#0284c7")
 
     let logoX = LX + 12
     if (logoBuf) {
@@ -138,10 +130,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     doc.fillColor("#ffffff").fontSize(10).font("Helvetica-Bold")
       .text(budget.numero, rightX, MARGIN + 37, { align: "center", width: 110 })
 
-    if (qrBuf) {
-      try { doc.image(qrBuf, LX + PAGE_W - 46, MARGIN + 2, { width: 50, height: 50 }) } catch { /* */ }
-    }
-
     let y = MARGIN + HDR_H + 8
 
     // Nota validez
@@ -157,8 +145,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         .text(value || "—", x + 3, cy + 9, { width: w - 6, ellipsis: true })
     }
 
-    // Landscape: 6 cols instead of 5
-    const c6 = PAGE_W / 6  // ~122 per col
+    const c6 = PAGE_W / 6
     drawCell("PATENTE",    budget.vehicle_patente ?? "—", LX,         y, c6)
     drawCell("CLIENTE",    clienteNombre,                 LX + c6,    y, c6 * 2)
     drawCell("RUT",        clienteRut,                    LX + c6*3,  y, c6)
@@ -183,36 +170,35 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // ── HEADER TABLA ÍTEMS ────────────────────────────────────────────────
     const repCols = 1 + (hasAlt ? 1 : 0) + (hasOtro ? 1 : 0)
-    // Asignar anchos de columna (total = PAGE_W = 732)
-    const CN = 20   // #
-    const CD = hasAlt || hasOtro ? 165 : 195  // descripcion
-    const CG = 52   // gestión
-    const CR = hasAlt && hasOtro ? 60 : hasAlt ? 70 : 80  // repuesto cols
-    const CMO = 70  // mano obra
-    const CDC = 28  // dcto%
-    const CT = 68   // total ítem
+    const CN  = 20   // #
+    const CG  = 48   // gestión
+    const CR  = hasAlt && hasOtro ? 58 : hasAlt ? 68 : 78  // repuesto cols
+    const CMO = 65   // mano obra
+    const CDC = 26   // dcto%
+    const CT  = 65   // total ítem
+    const CD  = hasAlt || hasOtro ? 150 : 170  // descripcion
     const usedW = CN + CD + CG + CR * repCols + CMO + CDC + CT
-    const CN2 = PAGE_W - usedW  // notas col (resto)
+    const CN2 = Math.max(PAGE_W - usedW, 60)  // notas col (resta, mínimo 60)
 
     doc.rect(LX, y, PAGE_W, 14).fill("#0284c7")
     const hY = y + 3.5
     doc.fillColor("#ffffff").fontSize(6).font("Helvetica-Bold")
     let cx = LX
-    doc.text("#",        cx, hY, { width: CN,  align: "center" }); cx += CN
-    doc.text("TRABAJO / DESCRIPCIÓN", cx, hY, { width: CD });     cx += CD
-    doc.text("GEST.",    cx, hY, { width: CG,  align: "center" }); cx += CG
-    doc.text("$ ORIG.",  cx, hY, { width: CR,  align: "right"  }); cx += CR
+    doc.text("#",                cx, hY, { width: CN,  align: "center" }); cx += CN
+    doc.text("TRABAJO / DESCRIPCIÓN", cx, hY, { width: CD });              cx += CD
+    doc.text("GEST.",            cx, hY, { width: CG,  align: "center" }); cx += CG
+    doc.text("$ ORIG.",          cx, hY, { width: CR,  align: "right"  }); cx += CR
     if (hasAlt)  { doc.text("$ ALT.",  cx, hY, { width: CR, align: "right" }); cx += CR }
     if (hasOtro) { doc.text("$ OTRO",  cx, hY, { width: CR, align: "right" }); cx += CR }
-    doc.text("$ M.O.",   cx, hY, { width: CMO, align: "right"  }); cx += CMO
-    doc.text("DC%",      cx, hY, { width: CDC, align: "center" }); cx += CDC
-    doc.text("TOTAL",    cx, hY, { width: CT,  align: "right"  }); cx += CT
-    if (CN2 > 0) doc.text("NOTAS", cx, hY, { width: CN2 })
+    doc.text("$ M.O.",           cx, hY, { width: CMO, align: "right"  }); cx += CMO
+    doc.text("DC%",              cx, hY, { width: CDC, align: "center" }); cx += CDC
+    doc.text("TOTAL",            cx, hY, { width: CT,  align: "right"  }); cx += CT
+    doc.text("DESC. TRABAJO",    cx, hY, { width: CN2 })
     y += 14
 
-    // Filas
+    // Filas de ítems
     items.forEach((item: any, idx: number) => {
-      if (y > 560) { doc.addPage(); y = MARGIN }
+      if (y > 555) { doc.addPage(); y = MARGIN }
       const rowH = 13
       const bg = idx % 2 === 0 ? "#ffffff" : "#f0f9ff"
       doc.rect(LX, y, PAGE_W, rowH).fill(bg)
@@ -238,12 +224,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       doc.fillColor("#374151").text(moN > 0 ? `$${fmt(moN)}` : "—", rx, rY, { width: CMO, align: "right" }); rx += CMO
       doc.text(item.dcto_pct > 0 ? `${item.dcto_pct}%` : "—", rx, rY, { width: CDC, align: "center" }); rx += CDC
       doc.fillColor("#111827").font("Helvetica-Bold").text(totI > 0 ? `$${fmt(totI)}` : "—", rx, rY, { width: CT, align: "right" }); rx += CT
-      if (CN2 > 0) doc.fillColor("#9ca3af").font("Helvetica").fontSize(6).text(item.notas ?? "", rx, rY, { width: CN2 - 2 })
+      doc.fillColor("#6b7280").font("Helvetica").fontSize(6).text(item.notas ?? "", rx, rY, { width: CN2 - 2 })
       y += rowH
     })
 
-    // ── FILA SUBTOTALES ───────────────────────────────────────────────────
-    if (y > 540) { doc.addPage(); y = MARGIN }
+    // Fila subtotales
+    if (y > 535) { doc.addPage(); y = MARGIN }
     doc.rect(LX, y, PAGE_W, 14).fill("#e0f2fe")
     const sTY = y + 3.5
     let stx = LX + CN + CD + CG
@@ -254,8 +240,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     doc.fillColor("#374151").text(`$${fmt(tOrig.sumMO)}`, stx, sTY, { width: CMO, align: "right" })
     y += 18
 
-    // ── CUADROS TOTALES ───────────────────────────────────────────────────
-    if (y > 520) { doc.addPage(); y = MARGIN }
+    // ── CUADROS TOTALES COMPACTOS + PANEL GRAN TOTAL ──────────────────────
+    if (y > 510) { doc.addPage(); y = MARGIN }
     y += 4
 
     const boxes = [
@@ -264,36 +250,67 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       ...(hasOtro ? [{ label: "OTRO",        t: tOtro, color: "#15803d", bg: "#f0fdf4" }] : []),
     ]
 
-    const boxCount = boxes.length
-    const boxW = boxCount === 3 ? 230 : boxCount === 2 ? 348 : 700
-    const boxGap = 6
+    const GRAND_W = 248
+    const optionsAreaW = PAGE_W - GRAND_W - 8
+    const optGap = 5
+    const numOpts = boxes.length
+    const optW = Math.floor((optionsAreaW - optGap * (numOpts - 1)) / numOpts)
+    const boxH = 52
+
+    // Opciones compactas
     boxes.forEach((box, idx) => {
-      const bx = LX + idx * (boxW + boxGap)
-      const bH = 50
-      doc.rect(bx, y, boxW, bH).fill(box.bg)
-      doc.rect(bx, y, boxW, 12).fill(box.color)
-      doc.fillColor("#ffffff").fontSize(7).font("Helvetica-Bold")
-        .text(box.label, bx, y + 3, { align: "center", width: boxW })
+      const bx = LX + idx * (optW + optGap)
+      doc.rect(bx, y, optW, boxH).fill(box.bg)
+      doc.rect(bx, y, optW, 12).fill(box.color)
+      doc.fillColor("#ffffff").fontSize(6.5).font("Helvetica-Bold")
+        .text(box.label, bx, y + 3, { align: "center", width: optW })
 
       let ry = y + 16
-      doc.fillColor("#374151").fontSize(6.5).font("Helvetica")
       if (dto > 0) {
-        doc.text("Descuento:", bx + 4, ry, { width: boxW * 0.55 })
-        doc.fillColor("#dc2626").text(`-$${fmt(dto)}`, bx + 4, ry, { width: boxW - 8, align: "right" })
-        ry += 9
+        doc.fillColor("#374151").fontSize(5.5).font("Helvetica")
+          .text("Descuento:", bx + 3, ry, { width: optW * 0.55 })
+        doc.fillColor("#dc2626").text(`-$${fmt(dto)}`, bx + 3, ry, { width: optW - 6, align: "right" })
+        ry += 8
       }
-      doc.fillColor("#374151").text("Subtotal:", bx + 4, ry, { width: boxW * 0.55 })
-      doc.fillColor("#111827").font("Helvetica-Bold").text(`$${fmt(box.t.sub)}`, bx + 4, ry, { width: boxW - 8, align: "right" })
-      ry += 9
-      doc.fillColor("#374151").font("Helvetica").text(`IVA (${iva}%):`, bx + 4, ry, { width: boxW * 0.55 })
-      doc.text(`$${fmt(box.t.ivaM)}`, bx + 4, ry, { width: boxW - 8, align: "right" })
+      doc.fillColor("#374151").fontSize(5.5).font("Helvetica")
+        .text("Neto:", bx + 3, ry, { width: optW * 0.55 })
+      doc.fillColor("#111827").font("Helvetica-Bold").text(`$${fmt(box.t.sub)}`, bx + 3, ry, { width: optW - 6, align: "right" })
 
-      // Total
-      doc.rect(bx, y + bH - 14, boxW, 14).fill(box.color)
-      doc.fillColor("#ffffff").fontSize(9).font("Helvetica-Bold")
-        .text(`TOTAL: $${fmt(box.t.total)}`, bx + 4, y + bH - 11, { align: "center", width: boxW - 8 })
+      doc.rect(bx, y + boxH - 14, optW, 14).fill(box.color)
+      doc.fillColor("#ffffff").fontSize(8).font("Helvetica-Bold")
+        .text(`$${fmt(box.t.total)}`, bx + 3, y + boxH - 11, { align: "center", width: optW - 6 })
     })
-    y += 58
+
+    // Panel Gran Total (siempre muestra la opción Original)
+    const grandX = LX + PAGE_W - GRAND_W
+    doc.rect(grandX, y, GRAND_W, boxH).fill("#0c2340")
+    doc.fillColor("#7dd3fc").fontSize(6.5).font("Helvetica-Bold")
+      .text("TOTAL PRESUPUESTO", grandX, y + 4, { align: "center", width: GRAND_W })
+
+    const lineH = 9
+    let gY = y + 16
+    const cLabel = GRAND_W * 0.56
+    const cVal = GRAND_W - 8
+
+    if (dto > 0) {
+      doc.fillColor("#93c5fd").fontSize(5.5).font("Helvetica")
+        .text("Descuento global:", grandX + 4, gY, { width: cLabel })
+      doc.fillColor("#fca5a5").text(`-$${fmt(dto)}`, grandX + 4, gY, { width: cVal, align: "right" })
+      gY += lineH
+    }
+    doc.fillColor("#93c5fd").fontSize(5.5).font("Helvetica")
+      .text("Subtotal neto:", grandX + 4, gY, { width: cLabel })
+    doc.fillColor("#ffffff").font("Helvetica-Bold").text(`$${fmt(tOrig.sub)}`, grandX + 4, gY, { width: cVal, align: "right" })
+    gY += lineH
+    doc.fillColor("#93c5fd").font("Helvetica")
+      .text(`IVA (${iva}%):`, grandX + 4, gY, { width: cLabel })
+    doc.fillColor("#ffffff").text(`$${fmt(tOrig.ivaM)}`, grandX + 4, gY, { width: cVal, align: "right" })
+
+    doc.rect(grandX, y + boxH - 14, GRAND_W, 14).fill("#0ea5e9")
+    doc.fillColor("#ffffff").fontSize(9.5).font("Helvetica-Bold")
+      .text(`TOTAL: $${fmt(tOrig.total)}`, grandX + 4, y + boxH - 11, { align: "center", width: GRAND_W - 8 })
+
+    y += boxH + 8
 
     // ── DESCRIPCIÓN SERVICIO ──────────────────────────────────────────────
     if (budget.descripcion_servicio) {
@@ -336,8 +353,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     // ── PIE ───────────────────────────────────────────────────────────────
-    if (y > 560) { doc.addPage(); y = MARGIN }
-    y = Math.max(y + 8, 565)
+    // Si el contenido no cabe en lo que queda de página, añadir nueva
+    if (y + 60 > PAGE_H_USABLE) { doc.addPage(); y = MARGIN }
+    y += 8
+
     doc.moveTo(LX, y).lineTo(LX + PAGE_W, y).strokeColor("#e2e8f0").lineWidth(0.5).stroke()
     y += 7
 
@@ -349,7 +368,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     doc.fillColor("#111827").fontSize(8).font("Helvetica-Bold")
       .text(insp?.full_name ?? S.company_name ?? "", LX, y)
     doc.fillColor("#6b7280").fontSize(6.5).font("Helvetica")
-      .text(insp?.professional_title ?? "Inspector AAEA", LX, y + 10)
+      .text(insp?.professional_title ?? "Inspector", LX, y + 10)
 
     doc.fillColor("#9ca3af").fontSize(6)
       .text(S.company_name + " · " + fmtDate(budget.created_at), LX, y + 10, { align: "right", width: PAGE_W })
