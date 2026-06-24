@@ -23,15 +23,12 @@ export default async function UsersPage() {
   const { data: { user } } = await supabase.auth.getUser()
   const { data: profile } = await supabase.from("profiles").select("full_name, role").eq("id", user!.id).single()
 
-  const { data: users, error: usersError } = await supabase
+  const { data: users } = await supabase
     .from("profiles")
     .select("id, full_name, email, phone, role, created_at")
     .in("role", ["admin", "inspector"])
     .order("role")
     .order("full_name")
-
-  if (usersError) console.error("[users page] query error:", usersError)
-  console.log("[users page] users found:", users?.length, users?.map(u => u.email))
 
   const admins = users?.filter(u => u.role === "admin") ?? []
   const inspectors = users?.filter(u => u.role === "inspector") ?? []
