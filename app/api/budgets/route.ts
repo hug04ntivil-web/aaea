@@ -9,60 +9,78 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json()
   const {
-    // Cliente
     clientId, clienteLibre,
-    // Vehículo
     vehiculo,
-    // Inspección
     inspectionId,
-    // Ítems
     items,
-    // Totales
-    ivaPct = 19, descuentoGlobal = 0,
-    // Info doc
-    formaPago, vigenciaDias = 30, descripcionServicio,
+    ivaPct = 19,
+    descuentoGlobal = 0,
+    formaPago,
+    vigenciaDias = 30,
+    descripcionServicio,
   } = body
 
   if (!items?.length) return NextResponse.json({ error: "Sin ítems en el presupuesto" }, { status: 400 })
-
   const hasClient = clientId || clienteLibre?.nombre
   if (!hasClient) return NextResponse.json({ error: "Ingresa los datos del cliente" }, { status: 400 })
-
-  const hasVehicle = vehiculo?.patente
-  if (!hasVehicle) return NextResponse.json({ error: "Ingresa la patente del vehículo" }, { status: 400 })
+  if (!vehiculo?.patente) return NextResponse.json({ error: "Ingresa la patente del vehículo" }, { status: 400 })
 
   try {
-    // Calcular totales
-    let totalRep = 0, totalMO = 0
-    const itemsWithTotals = items.map((item: any, idx: number) => {
-      const valRep = Number(item.val_repuesto) || 0
-      const valMO = Number(item.val_mano_obra) || 0
-      const dcto = Number(item.dcto_pct) || 0
-      const valorItem = Math.round((valRep + valMO) * (1 - dcto / 100))
-      totalRep += Math.round(valRep * (1 - dcto / 100))
-      totalMO += Math.round(valMO * (1 - dcto / 100))
+    // Calcular 3 totales por ítem (Original / Alternativo / Otro)
+    let sumRepOrig = 0, sumRepAlt = 0, sumRepOtro = 0, sumMO = 0
+
+    const itemsToInsert = items.map((item: any, idx: number) => {
+      const orig  = Number(item.rep_original)  || 0
+      const alt   = Number(item.rep_alternativo) || 0
+      const otro  = Number(item.rep_otro)      || 0
+      const mo    = Number(item.val_mano_obra) || 0
+      const dcto  = Number(item.dcto_pct)      || 0
+      const factor = 1 - dcto / 100
+
+      sumRepOrig += Math.round(orig * factor)
+      sumRepAlt  += Math.round(alt  * factor)
+      sumRepOtro += Math.round(otro * factor)
+      sumMO      += Math.round(mo   * factor)
+
       return {
         orden: idx + 1,
-        descripcion: item.descripcion || "",
-        gestion: item.gestion || "MECÁNICO",
+        descripcion:    item.descripcion || "",
+        gestion:        item.gestion || "MECÁNICO",
         gestion_custom: item.gestion_custom || null,
-        val_repuesto: valRep,
-        val_mano_obra: valMO,
-        dcto_pct: dcto,
-        valor_item: valorItem,
+        rep_genuino:    orig,   // Original
+        rep_korea:      alt,    // Alternativo
+        rep_multi:      otro,   // Otro
+        val_mano_obra:  mo,
+        mano_obra:      mo,
+        dcto_pct:       dcto,
+        // valor_item usa la opción "Original" como referencia
+        valor_item: Math.round((orig + mo) * factor),
+        val_repuesto:   orig,
         notas: item.notas || null,
       }
     })
 
-    const granTotal = totalRep + totalMO
-    const subtotalNeto = granTotal - (Number(descuentoGlobal) || 0)
-    const ivaMonto = Math.round(subtotalNeto * (Number(ivaPct) / 100))
-    const total = subtotalNeto + ivaMonto
+    const dto = Number(descuentoGlobal) || 0
+    const iva = Number(ivaPct)
 
-    // Número correlativo
+    const granTotalOrig = sumRepOrig + sumMO
+    const granTotalAlt  = sumRepAlt  + sumMO
+    const granTotalOtro = sumRepOtro + sumMO
+
+    const subOrig = granTotalOrig - dto
+    const subAlt  = granTotalAlt  - dto
+    const subOtro = granTotalOtro - dto
+
+    const ivaOrig = Math.round(subOrig * iva / 100)
+    const ivaAlt  = Math.round(subAlt  * iva / 100)
+    const ivaOtro = Math.round(subOtro * iva / 100)
+
+    const totalOrig = subOrig + ivaOrig
+    const totalAlt  = subAlt  + ivaAlt
+    const totalOtro = subOtro + ivaOtro
+
     const { data: numData } = await supabase.rpc("get_next_budget_number")
     const numero = numData ?? `PTO_${String(Date.now()).slice(-6)}`
-
     const publicToken = randomBytes(16).toString("hex")
 
     const budgetData: any = {
@@ -73,50 +91,56 @@ export async function POST(request: NextRequest) {
       vigencia_dias: vigenciaDias,
       descripcion_servicio: descripcionServicio || null,
       // Vehículo
-      vehicle_patente: vehiculo.patente?.toUpperCase(),
-      vehicle_marca: vehiculo.marca || null,
-      vehicle_modelo: vehiculo.modelo || null,
-      vehicle_anio: vehiculo.anio ? Number(vehiculo.anio) : null,
-      vehicle_version: vehiculo.version || null,
-      vehicle_vin: vehiculo.vin || null,
+      vehicle_patente:   vehiculo.patente?.toUpperCase(),
+      vehicle_marca:     vehiculo.marca    || null,
+      vehicle_modelo:    vehiculo.modelo   || null,
+      vehicle_anio:      vehiculo.anio  ? Number(vehiculo.anio)  : null,
+      vehicle_version:   vehiculo.version  || null,
+      vehicle_vin:       vehiculo.vin       || null,
       vehicle_num_motor: vehiculo.num_motor || null,
-      vehicle_color: vehiculo.color || null,
-      vehicle_km: vehiculo.km ? Number(vehiculo.km) : null,
-      // Totales
-      total_repuestos: totalRep,
-      total_mano_obra: totalMO,
-      gran_total: granTotal,
-      descuento_global: Number(descuentoGlobal) || 0,
-      subtotal: subtotalNeto,
-      iva_pct: Number(ivaPct),
-      iva_monto: ivaMonto,
-      total,
+      vehicle_color:     vehiculo.color     || null,
+      vehicle_km:        vehiculo.km ? Number(vehiculo.km) : null,
+      // Totales 3 opciones
+      total_repuestos: sumRepOrig,
+      total_mano_obra: sumMO,
+      gran_total:      granTotalOrig,
+      descuento_global: dto,
+      // Opción Original (default)
+      subtotal:   subOrig,
+      iva_pct:    iva,
+      iva_monto:  ivaOrig,
+      total:      totalOrig,
+      // Totales extra para Alternativo y Otro
+      total_alternativo: totalAlt,
+      total_otro:        totalOtro,
+      // También guardar los 3 gran_totales netos
+      gran_total_alternativo: granTotalAlt,
+      gran_total_otro:        granTotalOtro,
       status: "draft",
       public_token: publicToken,
     }
 
-    // Cliente registrado o libre
     if (clientId) {
       budgetData.client_id = clientId
     } else if (clienteLibre) {
-      budgetData.cliente_nombre = clienteLibre.nombre || null
-      budgetData.cliente_rut = clienteLibre.rut || null
-      budgetData.cliente_telefono = clienteLibre.telefono || null
-      budgetData.cliente_email = clienteLibre.email || null
-      budgetData.cliente_ciudad = clienteLibre.ciudad || null
-      budgetData.cliente_direccion = clienteLibre.direccion || null
+      budgetData.cliente_nombre    = clienteLibre.nombre   || null
+      budgetData.cliente_rut       = clienteLibre.rut      || null
+      budgetData.cliente_telefono  = clienteLibre.telefono || null
+      budgetData.cliente_email     = clienteLibre.email    || null
+      budgetData.cliente_ciudad    = clienteLibre.ciudad   || null
+      budgetData.cliente_direccion = clienteLibre.direccion|| null
     }
 
     const { data: budget, error: bErr } = await supabase
       .from("budgets").insert(budgetData).select().single()
     if (bErr) throw new Error(bErr.message)
 
-    const budgetItems = itemsWithTotals
-      .filter((i: any) => i.descripcion || i.val_repuesto > 0 || i.val_mano_obra > 0)
-      .map((i: any) => ({ ...i, budget_id: budget.id }))
+    const activeItems = itemsToInsert.filter((i: any) =>
+      i.descripcion || i.rep_genuino > 0 || i.rep_korea > 0 || i.rep_multi > 0 || i.val_mano_obra > 0
+    ).map((i: any) => ({ ...i, budget_id: budget.id }))
 
-    if (budgetItems.length) {
-      const { error: biErr } = await supabase.from("budget_items").insert(budgetItems)
+    if (activeItems.length) {
+      const { error: biErr } = await supabase.from("budget_items").insert(activeItems)
       if (biErr) throw new Error(biErr.message)
     }
 

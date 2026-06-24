@@ -10,17 +10,16 @@ interface Props {
   isPublic?: boolean
 }
 
-function fmt(n: number | null) { return (n ?? 0).toLocaleString("es-CL") }
+function fmt(n: number | null | undefined) { return Math.round(n ?? 0).toLocaleString("es-CL") }
 
 export default function BudgetDetail({ budget, isPublic = false }: Props) {
   const [copied, setCopied] = useState(false)
-  const [accepting, setAccepting] = useState(false)
+  const [accepting, setAccepting] = useState("")
   const [accepted, setAccepted] = useState(budget.status === "accepted")
-  const [opcionAceptada, setOpcionAceptada] = useState(budget.opcion_aceptada ?? "")
-  const publicUrl = typeof window !== "undefined" ? `${window.location.origin}/q/${budget.public_token}` : `/q/${budget.public_token}`
-
+  const [opcionAceptada, setOpcionAceptada] = useState<string>(budget.opcion_aceptada ?? "")
   const [showQr, setShowQr] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState("")
+  const publicUrl = typeof window !== "undefined" ? `${window.location.origin}/q/${budget.public_token}` : `/q/${budget.public_token}`
 
   useEffect(() => {
     if (showQr && !qrDataUrl) {
@@ -30,15 +29,46 @@ export default function BudgetDetail({ budget, isPublic = false }: Props) {
     }
   }, [showQr, publicUrl, qrDataUrl])
 
+  const items = (budget.budget_items ?? []).filter((i: any) => i.descripcion)
+  const iva = Number(budget.iva_pct ?? 19)
+  const dto = Number(budget.descuento_global ?? 0)
+
+  function calcTotal(repField: string) {
+    const sumRep = items.reduce((acc: number, i: any) => {
+      const f = 1 - (Number(i.dcto_pct) || 0) / 100
+      return acc + Math.round((Number(i[repField]) || 0) * f)
+    }, 0)
+    const sumMO = items.reduce((acc: number, i: any) => {
+      const f = 1 - (Number(i.dcto_pct) || 0) / 100
+      return acc + Math.round((Number(i.val_mano_obra) || 0) * f)
+    }, 0)
+    const sub = sumRep + sumMO - dto
+    const ivaM = Math.round(sub * iva / 100)
+    return { sub, ivaM, total: sub + ivaM }
+  }
+
+  const totalOrig = calcTotal("rep_genuino")
+  const totalAlt  = calcTotal("rep_korea")
+  const totalOtro = calcTotal("rep_multi")
+
+  const hasAlt  = items.some((i: any) => (i.rep_korea  ?? 0) > 0)
+  const hasOtro = items.some((i: any) => (i.rep_multi  ?? 0) > 0)
+
+  const client = budget.clients ?? null
+  const clienteNombre = client?.full_name ?? budget.cliente_nombre ?? "—"
+  const clienteRut = client?.rut ?? budget.cliente_rut ?? ""
+  const clienteTel = client?.phone ?? budget.cliente_telefono ?? ""
+  const clienteEmail = client?.email ?? budget.cliente_email ?? ""
+
   const opciones = [
-    { key: "genuino", label: "Genuino", total: budget.total_genuino, color: "border-blue-300 bg-blue-50", badge: "bg-blue-100 text-blue-700" },
-    { key: "korea", label: "Korea", total: budget.total_korea, color: "border-yellow-300 bg-yellow-50", badge: "bg-yellow-100 text-yellow-700" },
-    { key: "multi", label: "Multi origen", total: budget.total_multi, color: "border-green-300 bg-green-50", badge: "bg-green-100 text-green-700" },
-  ]
+    { key: "original",     label: "Original",     t: totalOrig, color: "border-blue-300 bg-blue-50",   badge: "bg-blue-100 text-blue-700",   show: true },
+    { key: "alternativo",  label: "Alternativo",  t: totalAlt,  color: "border-amber-300 bg-amber-50", badge: "bg-amber-100 text-amber-700", show: hasAlt },
+    { key: "otro",         label: "Otro",         t: totalOtro, color: "border-green-300 bg-green-50", badge: "bg-green-100 text-green-700", show: hasOtro },
+  ].filter(o => o.show)
 
   async function handleAccept(opcion: string) {
-    if (accepted) return
-    setAccepting(true)
+    if (accepted || accepting) return
+    setAccepting(opcion)
     try {
       const res = await fetch(`/api/budgets/${budget.id}/accept`, {
         method: "POST",
@@ -48,10 +78,10 @@ export default function BudgetDetail({ budget, isPublic = false }: Props) {
       if (res.ok) {
         setAccepted(true)
         setOpcionAceptada(opcion)
-        toast.success("¡Presupuesto aceptado! El inspector será notificado.")
+        toast.success("¡Presupuesto aceptado!")
       } else toast.error("Error al aceptar el presupuesto")
     } catch { toast.error("Error de conexión") }
-    finally { setAccepting(false) }
+    finally { setAccepting("") }
   }
 
   async function copyLink() {
@@ -62,24 +92,24 @@ export default function BudgetDetail({ budget, isPublic = false }: Props) {
   }
 
   function sendWhatsApp() {
-    const phone = budget.clients?.phone?.replace(/[^0-9]/g, "") ?? ""
-    const msg = encodeURIComponent(`Hola ${budget.clients?.full_name}, te comparto el presupuesto ${budget.numero}:\n${publicUrl}`)
+    const phone = (clienteTel).replace(/[^0-9]/g, "")
+    const msg = encodeURIComponent(`Hola ${clienteNombre}, te comparto el presupuesto ${budget.numero}:\n${publicUrl}`)
     const wa = phone ? `https://wa.me/${phone.startsWith("56") ? phone : "56" + phone}?text=${msg}` : `https://wa.me/?text=${msg}`
     window.open(wa, "_blank")
   }
 
   async function sendEmail() {
-    if (!budget.clients?.email) { toast.error("El cliente no tiene email"); return }
+    if (!clienteEmail) { toast.error("El cliente no tiene email"); return }
     const res = await fetch("/api/send-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "budget", id: budget.id, email: budget.clients.email, publicUrl }),
+      body: JSON.stringify({ type: "budget", id: budget.id, email: clienteEmail, publicUrl }),
     })
     toast[res.ok ? "success" : "error"](res.ok ? "Email enviado" : "Error al enviar")
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-5">
+    <div className="max-w-2xl mx-auto space-y-4">
       {/* Header */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
         <div className="flex items-start justify-between mb-3">
@@ -98,83 +128,98 @@ export default function BudgetDetail({ budget, isPublic = false }: Props) {
           )}
         </div>
         <div className="grid grid-cols-2 gap-3 text-sm">
-          <div><p className="text-xs text-gray-400">Cliente</p><p className="font-medium">{budget.clients?.full_name}</p></div>
-          {budget.clients?.rut && <div><p className="text-xs text-gray-400">RUT</p><p className="font-medium">{budget.clients.rut}</p></div>}
-          {budget.clients?.phone && <div><p className="text-xs text-gray-400">Teléfono</p><p className="font-medium">{budget.clients.phone}</p></div>}
-          {budget.clients?.email && <div><p className="text-xs text-gray-400">Email</p><p className="font-medium">{budget.clients.email}</p></div>}
+          <div><p className="text-xs text-gray-400">Cliente</p><p className="font-medium">{clienteNombre}</p></div>
+          {clienteRut && <div><p className="text-xs text-gray-400">RUT</p><p className="font-medium">{clienteRut}</p></div>}
+          {clienteTel && <div><p className="text-xs text-gray-400">Teléfono</p><p className="font-medium">{clienteTel}</p></div>}
+          {clienteEmail && <div><p className="text-xs text-gray-400">Email</p><p className="font-medium">{clienteEmail}</p></div>}
+          {budget.vehicle_patente && <div><p className="text-xs text-gray-400">Patente</p><p className="font-bold">{budget.vehicle_patente}</p></div>}
+          {budget.vehicle_marca && <div><p className="text-xs text-gray-400">Vehículo</p><p className="font-medium">{budget.vehicle_marca} {budget.vehicle_modelo} {budget.vehicle_anio}</p></div>}
         </div>
       </div>
 
       {/* Ítems */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-800">Detalle de repuestos</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
-              <tr>
-                <th className="px-4 py-2 text-left">Descripción</th>
-                <th className="px-3 py-2 text-center">Cant.</th>
-                <th className="px-3 py-2 text-right">Genuino</th>
-                <th className="px-3 py-2 text-right">Korea</th>
-                <th className="px-3 py-2 text-right">Multi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {budget.budget_items?.map((item: any) => (
-                <tr key={item.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-gray-800">{item.descripcion}</td>
-                  <td className="px-3 py-3 text-center text-gray-600">{item.cantidad}</td>
-                  <td className="px-3 py-3 text-right text-gray-700">${fmt(item.precio_genuino * item.cantidad)}</td>
-                  <td className="px-3 py-3 text-right text-gray-700">${fmt(item.precio_korea * item.cantidad)}</td>
-                  <td className="px-3 py-3 text-right text-gray-700">${fmt(item.precio_multi * item.cantidad)}</td>
+      {items.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="p-4 border-b border-gray-100">
+            <h3 className="font-semibold text-gray-800 text-sm">Detalle de trabajos y repuestos</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs sm:text-sm">
+              <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+                <tr>
+                  <th className="px-3 py-2 text-left">Descripción</th>
+                  <th className="px-2 py-2 text-right text-blue-600">Original</th>
+                  {hasAlt  && <th className="px-2 py-2 text-right text-amber-600">Alternativo</th>}
+                  {hasOtro && <th className="px-2 py-2 text-right text-green-700">Otro</th>}
+                  <th className="px-2 py-2 text-right">M. Obra</th>
+                  {items.some((i: any) => i.dcto_pct > 0) && <th className="px-2 py-2 text-center">Dcto.</th>}
                 </tr>
-              ))}
-              {budget.mano_de_obra > 0 && (
-                <tr className="bg-gray-50 font-medium">
-                  <td className="px-4 py-3 text-gray-700">Mano de obra / Instalación</td>
-                  <td className="px-3 py-3 text-center text-gray-500">—</td>
-                  <td className="px-3 py-3 text-right text-gray-700">${fmt(budget.mano_de_obra)}</td>
-                  <td className="px-3 py-3 text-right text-gray-700">${fmt(budget.mano_de_obra)}</td>
-                  <td className="px-3 py-3 text-right text-gray-700">${fmt(budget.mano_de_obra)}</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {items.map((item: any) => (
+                  <tr key={item.id} className="hover:bg-gray-50">
+                    <td className="px-3 py-2.5">
+                      <p className="font-medium text-gray-800">{item.descripcion}</p>
+                      {item.gestion && item.gestion !== "MECÁNICO" && (
+                        <p className="text-xs text-gray-400">{item.gestion === "OTRO" ? item.gestion_custom : item.gestion}</p>
+                      )}
+                    </td>
+                    <td className="px-2 py-2.5 text-right text-blue-700 font-medium whitespace-nowrap">
+                      {(item.rep_genuino ?? 0) > 0 ? `$${fmt(item.rep_genuino)}` : "—"}
+                    </td>
+                    {hasAlt  && <td className="px-2 py-2.5 text-right text-amber-600 font-medium whitespace-nowrap">
+                      {(item.rep_korea  ?? 0) > 0 ? `$${fmt(item.rep_korea)}` : "—"}
+                    </td>}
+                    {hasOtro && <td className="px-2 py-2.5 text-right text-green-700 font-medium whitespace-nowrap">
+                      {(item.rep_multi  ?? 0) > 0 ? `$${fmt(item.rep_multi)}` : "—"}
+                    </td>}
+                    <td className="px-2 py-2.5 text-right text-gray-600 whitespace-nowrap">
+                      {(item.val_mano_obra ?? 0) > 0 ? `$${fmt(item.val_mano_obra)}` : "—"}
+                    </td>
+                    {items.some((i: any) => i.dcto_pct > 0) && (
+                      <td className="px-2 py-2.5 text-center text-orange-500">
+                        {(item.dcto_pct ?? 0) > 0 ? `${item.dcto_pct}%` : "—"}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Opciones de precio */}
-      <div className="grid grid-cols-3 gap-3">
+      {/* Totales por opción */}
+      <div className={`grid gap-3 ${opciones.length === 3 ? "grid-cols-3" : opciones.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}>
         {opciones.map(o => (
-          <div key={o.key} className={`rounded-xl border-2 ${o.color} p-4 text-center relative`}>
+          <div key={o.key} className={`rounded-xl border-2 ${o.color} p-3 text-center relative`}>
             {accepted && opcionAceptada === o.key && (
-              <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+              <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center shadow">
                 <Check size={12} className="text-white" />
               </div>
             )}
-            <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">{o.label}</p>
-            <p className="text-lg font-black text-gray-800">${fmt(o.total)}</p>
-            <p className="text-xs text-gray-400">IVA {budget.iva_pct}% incl.</p>
+            <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded-full ${o.badge}`}>{o.label}</span>
+            <p className="text-lg font-black text-gray-900 mt-1">${fmt(o.t.total)}</p>
+            <p className="text-xs text-gray-400">IVA {iva}% incl.</p>
+            {dto > 0 && <p className="text-xs text-orange-500">Dcto: -${fmt(dto)}</p>}
             {isPublic && !accepted && (
-              <button onClick={() => handleAccept(o.key)} disabled={accepting}
-                className="mt-3 w-full py-1.5 bg-gray-800 hover:bg-gray-900 text-white rounded-lg text-xs font-medium transition disabled:opacity-50">
-                {accepting ? "..." : "Aceptar esta opción"}
+              <button onClick={() => handleAccept(o.key)} disabled={!!accepting}
+                className="mt-2 w-full py-1.5 bg-gray-800 hover:bg-gray-900 text-white rounded-lg text-xs font-medium transition disabled:opacity-50">
+                {accepting === o.key ? "..." : "Aceptar"}
               </button>
             )}
           </div>
         ))}
       </div>
 
-      {budget.notes && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-          <p className="text-sm font-medium text-gray-700 mb-1">Notas</p>
-          <p className="text-sm text-gray-600 whitespace-pre-wrap">{budget.notes}</p>
+      {budget.descripcion_servicio && (
+        <div className="bg-yellow-50 border border-yellow-100 rounded-xl p-4">
+          <p className="text-xs font-medium text-yellow-700 mb-1">Descripción del servicio</p>
+          <p className="text-sm text-gray-700 whitespace-pre-wrap">{budget.descripcion_servicio}</p>
         </div>
       )}
 
-      {/* Compartir — solo para inspector */}
+      {/* Compartir */}
       {!isPublic && (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
           <p className="text-xs font-medium text-gray-500 mb-3">Compartir presupuesto</p>
@@ -204,23 +249,33 @@ export default function BudgetDetail({ budget, isPublic = false }: Props) {
           {showQr && (
             <div className="mt-4 flex flex-col items-center gap-3 p-4 bg-gray-50 rounded-xl">
               <div className="flex items-center justify-between w-full">
-                <p className="text-xs font-medium text-gray-600">Escanea para ver el presupuesto</p>
-                <button onClick={() => setShowQr(false)} className="text-gray-400 hover:text-gray-600 transition">
+                <p className="text-xs font-medium text-gray-600">Código QR del presupuesto</p>
+                <button onClick={() => setShowQr(false)} className="text-gray-400 hover:text-gray-600">
                   <X size={14} />
                 </button>
               </div>
               {qrDataUrl ? (
-                <img src={qrDataUrl} alt="QR Presupuesto" className="w-52 h-52 rounded-lg shadow-sm" />
+                <img src={qrDataUrl} alt="QR Presupuesto" className="w-48 h-48 rounded-lg shadow-sm" />
               ) : (
-                <div className="w-52 h-52 bg-gray-200 rounded-lg animate-pulse" />
+                <div className="w-48 h-48 bg-gray-200 rounded-lg animate-pulse" />
               )}
-              <p className="text-[10px] text-gray-400 text-center max-w-[200px] break-all">{publicUrl}</p>
-              {qrDataUrl && (
-                <a href={qrDataUrl} download={`qr-presupuesto-${budget.numero}.png`}
-                  className="text-xs text-indigo-600 hover:text-indigo-800 transition font-medium">
-                  Descargar imagen QR
-                </a>
-              )}
+              <div className="flex gap-4 flex-wrap justify-center">
+                {qrDataUrl && (
+                  <a href={qrDataUrl} download={`qr-presupuesto-${budget.numero}.png`}
+                    className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
+                    Descargar QR
+                  </a>
+                )}
+                <button onClick={sendWhatsApp}
+                  className="text-xs text-green-600 hover:text-green-800 font-medium flex items-center gap-1">
+                  <MessageCircle size={11} /> WhatsApp
+                </button>
+                <button onClick={sendEmail}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
+                  <Mail size={11} /> Email
+                </button>
+              </div>
+              <p className="text-[10px] text-gray-400 text-center break-all max-w-[220px]">{publicUrl}</p>
             </div>
           )}
         </div>
@@ -231,12 +286,15 @@ export default function BudgetDetail({ budget, isPublic = false }: Props) {
         <div className="flex items-end justify-between">
           <div>
             <p className="text-xs text-gray-400 mb-1">Inspector</p>
-            <p className="font-semibold text-gray-800">{budget.profiles?.full_name}</p>
+            <p className="font-semibold text-gray-800">{budget.profiles?.full_name ?? "—"}</p>
+            {budget.profiles?.professional_title && (
+              <p className="text-xs text-gray-500">{budget.profiles.professional_title}</p>
+            )}
             {budget.profiles?.signature_url && (
-              <img src={budget.profiles.signature_url} alt="Firma" className="mt-2 h-12 object-contain" />
+              <img src={budget.profiles.signature_url} alt="Firma" className="mt-2 h-10 object-contain" />
             )}
           </div>
-          <p className="text-xs text-gray-400 text-right">AAEA Inspecciones</p>
+          <p className="text-xs text-gray-400 text-right">{formatDate(budget.created_at)}</p>
         </div>
       </div>
     </div>
