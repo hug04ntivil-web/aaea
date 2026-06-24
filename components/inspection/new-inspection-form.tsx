@@ -155,38 +155,45 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
     setSearching(true)
     const ppu = patente.trim().toUpperCase()
     setVehicle(v => ({ ...v, patente: ppu }))
-    const supabase = createClient()
-    const { data: existing } = await supabase.from("vehicles").select("*").eq("patente", ppu).single()
-    if (existing) {
-      setVehicle({
-        patente: existing.patente ?? "",
-        marca: existing.marca ?? "",
-        modelo: existing.modelo ?? "",
-        anio: existing.anio?.toString() ?? "",
-        color: existing.color ?? "",
-        combustible: existing.combustible ?? "GASOLINA",
-        transmision: existing.transmision ?? "MECÁNICA",
-        traccion: existing.traccion ?? "4x2",
-        cilindrada: existing.cilindrada ?? "",
-        tapiceria: existing.tapiceria ?? "",
-        num_puertas: existing.num_puertas?.toString() ?? "4",
-        tipo_vehiculo: existing.tipo_vehiculo ?? "auto",
-        vin: existing.vin ?? "",
-        num_motor: existing.num_motor ?? "",
-        soap_estado: existing.soap_estado ?? "",
-        soap_vencimiento: existing.soap_vencimiento ?? "",
-        rev_tecnica_estado: existing.rev_tecnica_estado ?? "",
-        rev_tecnica_vencimiento: existing.rev_tecnica_vencimiento ?? "",
-        permiso_circulacion: existing.permiso_circulacion ?? "",
-        emision_contaminantes: existing.emision_contaminantes ?? "",
-        multas: existing.multas ?? "$0",
-        kilometraje: "",
-      })
-      toast.success("Vehículo encontrado en el sistema")
-    } else {
-      toast.info("Vehículo nuevo — completa los datos manualmente")
+    try {
+      const res = await fetch(`/api/vehicles?patente=${ppu}`)
+      const { vehicle, source } = await res.json()
+      if (vehicle) {
+        setVehicle(v => ({
+          ...v,
+          patente:      vehicle.patente    ?? ppu,
+          marca:        vehicle.marca      ?? "",
+          modelo:       vehicle.modelo     ?? "",
+          anio:         vehicle.anio != null ? String(vehicle.anio) : "",
+          color:        vehicle.color      ?? "",
+          combustible:  vehicle.combustible  || v.combustible,
+          transmision:  vehicle.transmision  || v.transmision,
+          traccion:     vehicle.traccion    || v.traccion,
+          cilindrada:   vehicle.cilindrada  ?? "",
+          tapiceria:    vehicle.tapiceria   ?? "",
+          num_puertas:  vehicle.num_puertas ? String(vehicle.num_puertas) : v.num_puertas,
+          tipo_vehiculo: vehicle.tipo_vehiculo || v.tipo_vehiculo,
+          vin:          vehicle.vin         ?? "",
+          num_motor:    vehicle.num_motor   ?? "",
+          // documentación legal solo si viene de registro local
+          soap_estado:           source === "local" ? (vehicle.soap_estado ?? "") : v.soap_estado,
+          soap_vencimiento:      source === "local" ? (vehicle.soap_vencimiento ?? "") : v.soap_vencimiento,
+          rev_tecnica_estado:    source === "local" ? (vehicle.rev_tecnica_estado ?? "") : v.rev_tecnica_estado,
+          rev_tecnica_vencimiento: source === "local" ? (vehicle.rev_tecnica_vencimiento ?? "") : v.rev_tecnica_vencimiento,
+          permiso_circulacion:   source === "local" ? (vehicle.permiso_circulacion ?? "") : v.permiso_circulacion,
+          emision_contaminantes: source === "local" ? (vehicle.emision_contaminantes ?? "") : v.emision_contaminantes,
+          multas:                source === "local" ? (vehicle.multas ?? "$0") : v.multas,
+        }))
+        toast.success(source === "boostr" ? `Vehículo encontrado en Boostr` : "Vehículo encontrado en el sistema")
+      } else {
+        setVehicle(v => ({ ...v, patente: ppu }))
+        toast.info("Patente no encontrada — completa los datos manualmente")
+      }
+    } catch {
+      toast.error("Error al buscar patente")
+    } finally {
+      setSearching(false)
     }
-    setSearching(false)
   }
 
   function updateItem(key: string, field: "estado" | "observaciones", value: string) {

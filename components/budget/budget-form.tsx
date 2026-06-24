@@ -159,17 +159,25 @@ export default function BudgetForm({ clients, inspections, settings, initialBudg
     setBuscandoVehiculo(true)
     try {
       const res = await fetch(`/api/vehicles?patente=${patente}`)
-      if (res.ok) {
-        const { vehicle } = await res.json()
-        if (vehicle) {
-          setVehiculo({ patente: vehicle.patente ?? patente, marca: vehicle.marca ?? "", modelo: vehicle.modelo ?? "", anio: vehicle.anio ? String(vehicle.anio) : "", version: vehicle.version ?? "", vin: vehicle.vin ?? "", num_motor: vehicle.num_motor ?? "", color: vehicle.color ?? "", km: "" })
-          setShowVehicleManual(true)
-          toast.success("Vehículo encontrado")
-        } else {
-          setVehiculo({ ...emptyVehiculo(), patente })
-          setShowVehicleManual(true)
-          toast.info("No encontrado — ingresa los datos manualmente")
-        }
+      const { vehicle, source } = await res.json()
+      if (vehicle) {
+        setVehiculo({
+          patente:   vehicle.patente   ?? patente,
+          marca:     vehicle.marca     ?? "",
+          modelo:    vehicle.modelo    ?? "",
+          anio:      vehicle.anio != null ? String(vehicle.anio) : "",
+          version:   vehicle.version   ?? "",
+          vin:       vehicle.vin       ?? "",
+          num_motor: vehicle.num_motor ?? "",
+          color:     vehicle.color     ?? "",
+          km:        "",
+        })
+        setShowVehicleManual(true)
+        toast.success(source === "boostr" ? "Vehículo encontrado en Boostr" : "Vehículo encontrado")
+      } else {
+        setVehiculo({ ...emptyVehiculo(), patente })
+        setShowVehicleManual(true)
+        toast.info("No encontrado — ingresa los datos manualmente")
       }
     } catch { toast.error("Error al buscar") }
     finally { setBuscandoVehiculo(false) }
