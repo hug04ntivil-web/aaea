@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Pencil, Trash2 } from "lucide-react"
+import { Pencil, Trash2, Send, FileText } from "lucide-react"
 import AppShell from "@/components/layout/app-shell"
 import BudgetDetail from "@/components/budget/budget-detail"
 
@@ -14,6 +14,7 @@ export default function BudgetDetailPage({ params }: { params: Promise<{ id: str
   const [profile, setProfile] = useState<any>(null)
   const [settings, setSettings] = useState<Record<string, string>>({})
   const [deleting, setDeleting] = useState(false)
+  const [changingStatus, setChangingStatus] = useState(false)
 
   useEffect(() => {
     params.then(p => setId(p.id))
@@ -27,6 +28,23 @@ export default function BudgetDetailPage({ params }: { params: Promise<{ id: str
       setSettings(d.settings ?? {})
     })
   }, [id])
+
+  async function changeStatus(status: string) {
+    setChangingStatus(true)
+    try {
+      const res = await fetch(`/api/budgets/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setBudget((b: any) => ({ ...b, status }))
+      toast.success(`Estado cambiado a "${status === "sent" ? "Enviado" : status === "draft" ? "Borrador" : "Aprobado"}"`)
+    } catch (err: any) {
+      toast.error(err.message ?? "Error al cambiar estado")
+    } finally { setChangingStatus(false) }
+  }
 
   async function handleDelete() {
     if (!confirm("¿Eliminar este presupuesto? Esta acción no se puede deshacer.")) return
@@ -67,21 +85,40 @@ export default function BudgetDetailPage({ params }: { params: Promise<{ id: str
             </span>
           )}
         </div>
-        {isDraft && (
-          <div className="flex gap-2">
-            <button
-              onClick={() => router.push(`/inspector/budgets/${id}/edit`)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-xs font-medium transition">
-              <Pencil size={13} /> Editar
+        <div className="flex gap-2 flex-wrap">
+          {/* Cambiar estado */}
+          {budget.status === "draft" && (
+            <button onClick={() => changeStatus("sent")} disabled={changingStatus}
+              className="flex items-center gap-1.5 px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-xs font-medium transition disabled:opacity-50">
+              <Send size={13} /> {changingStatus ? "..." : "Marcar Enviado"}
             </button>
-            <button
-              onClick={handleDelete}
-              disabled={deleting}
-              className="flex items-center gap-1.5 px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-xs font-medium transition disabled:opacity-50">
-              <Trash2 size={13} /> {deleting ? "..." : "Eliminar"}
-            </button>
-          </div>
-        )}
+          )}
+          {budget.status === "sent" && (
+            <>
+              <button onClick={() => changeStatus("draft")} disabled={changingStatus}
+                className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs font-medium transition disabled:opacity-50">
+                <FileText size={13} /> Volver a Borrador
+              </button>
+              <button onClick={() => changeStatus("accepted")} disabled={changingStatus}
+                className="flex items-center gap-1.5 px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-xs font-medium transition disabled:opacity-50">
+                ✓ {changingStatus ? "..." : "Marcar Aprobado"}
+              </button>
+            </>
+          )}
+          {/* Editar / Eliminar solo en borrador o enviado */}
+          {isDraft && (
+            <>
+              <button onClick={() => router.push(`/inspector/budgets/${id}/edit`)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-medium transition">
+                <Pencil size={13} /> Editar
+              </button>
+              <button onClick={handleDelete} disabled={deleting}
+                className="flex items-center gap-1.5 px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-xs font-medium transition disabled:opacity-50">
+                <Trash2 size={13} /> {deleting ? "..." : "Eliminar"}
+              </button>
+            </>
+          )}
+        </div>
       </div>
       <BudgetDetail budget={budget} isPublic={false} settings={settings} />
     </AppShell>

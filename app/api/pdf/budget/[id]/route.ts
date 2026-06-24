@@ -203,15 +203,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     doc.fillColor("#ffffff").fontSize(5.5).font("Helvetica-Bold")
     let cx = LX
     doc.text("#",              cx, hY, { width: CN,  align: "center" }); cx += CN
-    doc.text("DESCRIPCIÓN / TRABAJO", cx, hY, { width: CD });            cx += CD
+    doc.text("DESCRIPCIÓN / TRABAJO", cx, hY, { width: CD, align: "center" }); cx += CD
     doc.text("GEST.",          cx, hY, { width: CG,  align: "center" }); cx += CG
-    doc.text("VALOR ORIGINAL", cx, hY, { width: CR,  align: "right"  }); cx += CR
-    if (hasAlt)  { doc.text("VALOR ALT.",  cx, hY, { width: CR, align: "right" }); cx += CR }
-    if (hasOtro) { doc.text("VALOR OTRO",  cx, hY, { width: CR, align: "right" }); cx += CR }
-    doc.text("MANO OBRA",      cx, hY, { width: CMO, align: "right"  }); cx += CMO
+    doc.text("VALOR ORIGINAL", cx, hY, { width: CR,  align: "center" }); cx += CR
+    if (hasAlt)  { doc.text("VALOR ALT.",  cx, hY, { width: CR, align: "center" }); cx += CR }
+    if (hasOtro) { doc.text("VALOR OTRO",  cx, hY, { width: CR, align: "center" }); cx += CR }
+    doc.text("MANO OBRA",      cx, hY, { width: CMO, align: "center" }); cx += CMO
     doc.text("DC%",            cx, hY, { width: CDC, align: "center" }); cx += CDC
-    doc.text("TOTAL ITEM",     cx, hY, { width: CT,  align: "right"  }); cx += CT
-    doc.text("DESCRIPCIÓN TRABAJO", cx, hY, { width: CN2 })
+    doc.text("TOTAL ITEM",     cx, hY, { width: CT,  align: "center" }); cx += CT
+    doc.text("DESCRIPCIÓN TRABAJO", cx, hY, { width: CN2, align: "center" })
     y += 14
 
     // Filas de ítems
@@ -245,12 +245,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       doc.text(String(item.orden ?? idx + 1), rx, rY, { width: CN,  align: "center" }); rx += CN
       doc.text(item.descripcion ?? "",         rx, rY, { width: CD - 2, ellipsis: true }); rx += CD
       doc.fillColor("#6b7280").text(gLabel,    rx, rY, { width: CG,  align: "center" }); rx += CG
-      doc.fillColor("#1d4ed8").text(origN > 0 ? `$${fmt(origN)}` : "—", rx, rY, { width: CR, align: "right" }); rx += CR
-      if (hasAlt)  { doc.fillColor("#b45309").text(altN  > 0 ? `$${fmt(altN)}`  : "—", rx, rY, { width: CR, align: "right" }); rx += CR }
-      if (hasOtro) { doc.fillColor("#15803d").text(otroN > 0 ? `$${fmt(otroN)}` : "—", rx, rY, { width: CR, align: "right" }); rx += CR }
-      doc.fillColor("#374151").text(moN > 0 ? `$${fmt(moN)}` : "—",               rx, rY, { width: CMO, align: "right" }); rx += CMO
+      doc.fillColor("#1d4ed8").text(origN > 0 ? `$${fmt(origN)}` : "—", rx, rY, { width: CR, align: "center" }); rx += CR
+      if (hasAlt)  { doc.fillColor("#b45309").text(altN  > 0 ? `$${fmt(altN)}`  : "—", rx, rY, { width: CR, align: "center" }); rx += CR }
+      if (hasOtro) { doc.fillColor("#15803d").text(otroN > 0 ? `$${fmt(otroN)}` : "—", rx, rY, { width: CR, align: "center" }); rx += CR }
+      doc.fillColor("#374151").text(moN > 0 ? `$${fmt(moN)}` : "—",               rx, rY, { width: CMO, align: "center" }); rx += CMO
       doc.text(item.dcto_pct > 0 ? `${item.dcto_pct}%` : "—",                     rx, rY, { width: CDC, align: "center" }); rx += CDC
-      doc.fillColor("#111827").font("Helvetica-Bold").text(totI > 0 ? `$${fmt(totI)}` : "—", rx, rY, { width: CT, align: "right" }); rx += CT
+      doc.fillColor("#111827").font("Helvetica-Bold").text(totI > 0 ? `$${fmt(totI)}` : "—", rx, rY, { width: CT, align: "center" }); rx += CT
       doc.fillColor("#6b7280").font("Helvetica").fontSize(6).text(item.notas ?? "", rx, rY, { width: CN2 - 2 })
       y += rowH
     })
@@ -270,107 +270,118 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     doc.fillColor("#374151").text(`M.O.: $${fmt(tOrig.sumMO)}`, stx, sTY, { width: CMO, align: "right" })
     y += 18
 
-    // ── CUADROS TOTALES POR OPCIÓN + GRAN TOTAL ───────────────────────────
-    if (y > 510) { doc.addPage(); y = MARGIN }
+    // ── CUADROS OPCIONES (compactos) + RESUMEN TOTAL (grande) ────────────
+    if (y > 505) { doc.addPage(); y = MARGIN }
     y += 6
 
     const boxes = [
-      { label: "OPCIÓN ORIGINAL",    t: tOrig, color: "#1d4ed8", bg: "#eff6ff", border: "#bfdbfe" },
+      { label: "OPCIÓN ORIGINAL",   t: tOrig, color: "#1d4ed8", bg: "#eff6ff", border: "#bfdbfe" },
       ...(hasAlt  ? [{ label: "OPCIÓN ALTERNATIVA", t: tAlt,  color: "#b45309", bg: "#fffbeb", border: "#fde68a" }] : []),
       ...(hasOtro ? [{ label: "OPCIÓN OTRO",         t: tOtro, color: "#15803d", bg: "#f0fdf4", border: "#a7f3d0" }] : []),
     ]
 
-    // Altura dinámica según si hay descuento
-    const boxContentLines = dto > 0 ? 3 : 2   // descuento + neto + (vacío) OR neto + (vacío)
-    const BOX_INNER = boxContentLines * 9 + 4  // líneas * alto + padding
-    const BOX_HEADER = 13
-    const BOX_FOOTER = 16
-    const boxH = BOX_HEADER + BOX_INNER + BOX_FOOTER   // ≈42–50
+    // Totales globales (suma de TODOS los repuestos + MO = total completo del presupuesto)
+    const sumRepAll = tOrig.sumR + tAlt.sumR + tOtro.sumR
+    const subAll    = sumRepAll + tOrig.sumMO - dto
+    const ivaAll    = Math.round(subAll * iva / 100)
+    const totalAll  = subAll + ivaAll
 
-    const GRAND_W = 252
-    const optionsAreaW = PAGE_W - GRAND_W - 8
-    const optGap = 5
-    const numOpts = boxes.length
-    const optW = Math.floor((optionsAreaW - optGap * (numOpts - 1)) / numOpts)
+    // Layout: opciones (izquierda, compactas) | gran total (derecha, más ancho)
+    const GRAND_W    = 270
+    const optsAreaW  = PAGE_W - GRAND_W - 8
+    const optGap     = 5
+    const numOpts    = boxes.length
+    const optW       = Math.floor((optsAreaW - optGap * (numOpts - 1)) / numOpts)
+
+    const HDR_H_B  = 13
+    const FTR_H_B  = 16
+    // Opciones compactas: descuento? + neto + IVA
+    const BOX_H    = HDR_H_B + 3 + (dto > 0 ? 3 : 2) * 8 + FTR_H_B
+    // RESUMEN TOTAL: 3 rep fijos + alt? + otro? + MO + separador + dto? + neto + IVA
+    const grandRows = 3 + (hasAlt ? 1 : 0) + (hasOtro ? 1 : 0) + (dto > 0 ? 1 : 0)
+    const GRAND_H  = HDR_H_B + 3 + grandRows * 8 + 4 + FTR_H_B + 2
 
     // Opciones compactas
     boxes.forEach((box, idx) => {
       const bx = LX + idx * (optW + optGap)
-
-      // Fondo + borde
-      doc.rect(bx, y, optW, boxH).fill(box.bg)
-      doc.rect(bx, y, optW, boxH).stroke(box.border).lineWidth(0.5)
-
-      // Header coloreado
-      doc.rect(bx, y, optW, BOX_HEADER).fill(box.color)
-      doc.fillColor("#ffffff").fontSize(6.5).font("Helvetica-Bold")
+      doc.rect(bx, y, optW, BOX_H).fill(box.bg)
+      doc.rect(bx, y, optW, BOX_H).stroke(box.border).lineWidth(0.5)
+      doc.rect(bx, y, optW, HDR_H_B).fill(box.color)
+      doc.fillColor("#ffffff").fontSize(6).font("Helvetica-Bold")
         .text(box.label, bx, y + 3.5, { align: "center", width: optW })
 
-      // Contenido
-      let ry = y + BOX_HEADER + 3
+      let ry = y + HDR_H_B + 3
       const cW = optW - 8
-
       if (dto > 0) {
         doc.fillColor("#6b7280").fontSize(5.5).font("Helvetica")
-          .text("Descuento:", bx + 4, ry, { width: cW * 0.52 })
-        doc.fillColor("#dc2626").text(`-$${fmt(dto)}`, bx + 4, ry, { width: cW, align: "right" })
-        ry += 9
+          .text("Descuento:", bx + 4, ry, { width: cW * 0.5 })
+        doc.fillColor("#dc2626").text(`-$${fmt(dto)}`, bx + 4, ry, { width: cW, align: "right" }); ry += 8
       }
       doc.fillColor("#374151").fontSize(5.5).font("Helvetica")
-        .text("Subtotal neto:", bx + 4, ry, { width: cW * 0.52 })
+        .text("Neto:", bx + 4, ry, { width: cW * 0.5 })
       doc.fillColor("#111827").font("Helvetica-Bold")
-        .text(`$${fmt(box.t.sub)}`, bx + 4, ry, { width: cW, align: "right" })
-      ry += 9
+        .text(`$${fmt(box.t.sub)}`, bx + 4, ry, { width: cW, align: "right" }); ry += 8
       doc.fillColor("#374151").font("Helvetica")
-        .text(`IVA (${iva}%):`, bx + 4, ry, { width: cW * 0.52 })
+        .text(`IVA (${iva}%):`, bx + 4, ry, { width: cW * 0.5 })
       doc.fillColor("#374151")
         .text(`$${fmt(box.t.ivaM)}`, bx + 4, ry, { width: cW, align: "right" })
 
-      // Footer con total
-      const footerY = y + boxH - BOX_FOOTER
-      doc.rect(bx, footerY, optW, BOX_FOOTER).fill(box.color)
-      doc.fillColor("#ffffff").fontSize(7.5).font("Helvetica-Bold")
-        .text(`TOTAL c/IVA: $${fmt(box.t.total)}`, bx + 3, footerY + 4, { align: "center", width: optW - 6 })
+      const fY = y + BOX_H - FTR_H_B
+      doc.rect(bx, fY, optW, FTR_H_B).fill(box.color)
+      doc.fillColor("#ffffff").fontSize(7).font("Helvetica-Bold")
+        .text(`$${fmt(box.t.total)}`, bx + 3, fY + 4, { align: "center", width: optW - 6 })
     })
 
-    // ── PANEL GRAN TOTAL (fondo claro) ────────────────────────────────────
+    // ── RESUMEN TOTAL COMPLETO (lado derecho, más grande) ─────────────────
     const grandX = LX + PAGE_W - GRAND_W
-    const grandBorder = "#bfdbfe"
-
-    doc.rect(grandX, y, GRAND_W, boxH).fill("#f0f9ff")
-    doc.rect(grandX, y, GRAND_W, boxH).stroke(grandBorder).lineWidth(0.7)
 
     // Header
-    doc.rect(grandX, y, GRAND_W, BOX_HEADER).fill("#1e40af")
-    doc.fillColor("#ffffff").fontSize(6.5).font("Helvetica-Bold")
-      .text("RESUMEN TOTAL (Opción Original)", grandX, y + 3.5, { align: "center", width: GRAND_W })
+    doc.rect(grandX, y, GRAND_W, GRAND_H).fill("#f0f9ff")
+    doc.rect(grandX, y, GRAND_W, GRAND_H).stroke("#93c5fd").lineWidth(0.8)
+    doc.rect(grandX, y, GRAND_W, HDR_H_B).fill("#1e40af")
+    doc.fillColor("#ffffff").fontSize(7).font("Helvetica-Bold")
+      .text("RESUMEN TOTAL DEL PRESUPUESTO", grandX, y + 3.5, { align: "center", width: GRAND_W })
 
-    // Contenido
-    let gY = y + BOX_HEADER + 3
-    const gCW = GRAND_W - 8
-    const gLeft = GRAND_W * 0.52
+    let gY  = y + HDR_H_B + 3
+    const gCW  = GRAND_W - 10
+    const gL   = GRAND_W * 0.52
+
+    // Desglose de repuestos
+    doc.fillColor("#374151").fontSize(5.5).font("Helvetica")
+    doc.text("Repuestos originales:",  grandX + 5, gY, { width: gL })
+    doc.fillColor("#1d4ed8").font("Helvetica-Bold").text(`$${fmt(tOrig.sumR)}`, grandX + 5, gY, { width: gCW, align: "right" }); gY += 8
+
+    if (hasAlt) {
+      doc.fillColor("#374151").font("Helvetica").text("Repuestos alternativos:", grandX + 5, gY, { width: gL })
+      doc.fillColor("#b45309").font("Helvetica-Bold").text(`$${fmt(tAlt.sumR)}`, grandX + 5, gY, { width: gCW, align: "right" }); gY += 8
+    }
+    if (hasOtro) {
+      doc.fillColor("#374151").font("Helvetica").text("Repuestos otro:",         grandX + 5, gY, { width: gL })
+      doc.fillColor("#15803d").font("Helvetica-Bold").text(`$${fmt(tOtro.sumR)}`, grandX + 5, gY, { width: gCW, align: "right" }); gY += 8
+    }
+
+    doc.fillColor("#374151").font("Helvetica").text("Mano de obra:",             grandX + 5, gY, { width: gL })
+    doc.fillColor("#374151").font("Helvetica-Bold").text(`$${fmt(tOrig.sumMO)}`, grandX + 5, gY, { width: gCW, align: "right" }); gY += 8
+
+    // Separador
+    doc.moveTo(grandX + 5, gY).lineTo(grandX + GRAND_W - 5, gY).strokeColor("#bfdbfe").lineWidth(0.5).stroke(); gY += 4
 
     if (dto > 0) {
-      doc.fillColor("#6b7280").fontSize(5.5).font("Helvetica")
-        .text("Descuento global:", grandX + 4, gY, { width: gLeft })
-      doc.fillColor("#dc2626").text(`-$${fmt(dto)}`, grandX + 4, gY, { width: gCW, align: "right" })
-      gY += 9
+      doc.fillColor("#374151").fontSize(5.5).font("Helvetica").text("Descuento global:", grandX + 5, gY, { width: gL })
+      doc.fillColor("#dc2626").font("Helvetica-Bold").text(`-$${fmt(dto)}`, grandX + 5, gY, { width: gCW, align: "right" }); gY += 8
     }
-    doc.fillColor("#374151").fontSize(5.5).font("Helvetica")
-      .text("Subtotal neto:", grandX + 4, gY, { width: gLeft })
-    doc.fillColor("#1e3a5f").font("Helvetica-Bold").text(`$${fmt(tOrig.sub)}`, grandX + 4, gY, { width: gCW, align: "right" })
-    gY += 9
-    doc.fillColor("#374151").font("Helvetica")
-      .text(`IVA (${iva}%):`, grandX + 4, gY, { width: gLeft })
-    doc.fillColor("#374151").text(`$${fmt(tOrig.ivaM)}`, grandX + 4, gY, { width: gCW, align: "right" })
+    doc.fillColor("#374151").font("Helvetica").text("Subtotal neto:",             grandX + 5, gY, { width: gL })
+    doc.fillColor("#1e3a5f").font("Helvetica-Bold").text(`$${fmt(subAll)}`, grandX + 5, gY, { width: gCW, align: "right" }); gY += 8
+    doc.fillColor("#374151").font("Helvetica").text(`IVA (${iva}%):`,             grandX + 5, gY, { width: gL })
+    doc.fillColor("#374151").font("Helvetica-Bold").text(`$${fmt(ivaAll)}`, grandX + 5, gY, { width: gCW, align: "right" })
 
-    // Footer total
-    const gFooterY = y + boxH - BOX_FOOTER
-    doc.rect(grandX, gFooterY, GRAND_W, BOX_FOOTER).fill("#1d4ed8")
+    // Footer total a pagar
+    const gFY = y + GRAND_H - FTR_H_B
+    doc.rect(grandX, gFY, GRAND_W, FTR_H_B).fill("#1d4ed8")
     doc.fillColor("#ffffff").fontSize(9).font("Helvetica-Bold")
-      .text(`TOTAL: $${fmt(tOrig.total)}`, grandX + 4, gFooterY + 4, { align: "center", width: GRAND_W - 8 })
+      .text(`TOTAL A PAGAR: $${fmt(totalAll)}`, grandX + 4, gFY + 4, { align: "center", width: GRAND_W - 8 })
 
-    y += boxH + 12
+    y += GRAND_H + 12
 
     // ── DESCRIPCIÓN DEL SERVICIO / OBSERVACIONES ──────────────────────────
     if (budget.descripcion_servicio) {
