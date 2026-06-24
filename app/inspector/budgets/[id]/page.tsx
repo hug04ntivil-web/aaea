@@ -21,7 +21,7 @@ export default function BudgetDetailPage({ params }: { params: Promise<{ id: str
 
   useEffect(() => {
     if (!id) return
-    fetch(`/api/budgets/${id}/data`).then(r => r.json()).then(d => {
+    fetch(`/api/budgets/${id}`).then(r => r.json()).then(d => {
       setBudget(d.budget)
       setProfile(d.profile)
       setSettings(d.settings ?? {})
