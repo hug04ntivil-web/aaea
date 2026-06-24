@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { toast } from "sonner"
-import { Copy, Check, Mail, MessageCircle, CheckCircle, QrCode, Download, X } from "lucide-react"
+import { Check, CheckCircle } from "lucide-react"
+import ShareBudgetPanel from "./share-budget-panel"
 
 interface Props {
   budget: any
@@ -16,35 +17,22 @@ function fmtDate(d: string) {
 }
 
 const OPCIONES = [
-  { key: "original", label: "Original", rep: "rep_genuino", color: "border-blue-400 bg-blue-50", badge: "bg-blue-100 text-blue-700", btn: "bg-blue-600 hover:bg-blue-700" },
-  { key: "alternativo", label: "Alternativo", rep: "rep_korea", color: "border-amber-400 bg-amber-50", badge: "bg-amber-100 text-amber-700", btn: "bg-amber-500 hover:bg-amber-600" },
-  { key: "otro", label: "Otro", rep: "rep_multi", color: "border-green-400 bg-green-50", badge: "bg-green-100 text-green-700", btn: "bg-green-600 hover:bg-green-700" },
+  { key: "original",    label: "Original",    rep: "rep_genuino", color: "border-blue-400 bg-blue-50",   badge: "bg-blue-100 text-blue-700",   btn: "bg-blue-600 hover:bg-blue-700" },
+  { key: "alternativo", label: "Alternativo", rep: "rep_korea",   color: "border-amber-400 bg-amber-50", badge: "bg-amber-100 text-amber-700", btn: "bg-amber-500 hover:bg-amber-600" },
+  { key: "otro",        label: "Otro",        rep: "rep_multi",   color: "border-green-400 bg-green-50", badge: "bg-green-100 text-green-700", btn: "bg-green-600 hover:bg-green-700" },
 ]
 
 export default function PublicBudgetView({ budget, settings }: Props) {
-  const [accepted, setAccepted] = useState(budget.status === "accepted")
-  const [opcionAceptada, setOpcionAceptada] = useState<string>(budget.opcion_aceptada ?? "")
-  const [accepting, setAccepting] = useState("")
-  const [copied, setCopied] = useState(false)
-  const [showQr, setShowQr] = useState(false)
-  const [qrDataUrl, setQrDataUrl] = useState("")
-
-  const publicUrl = typeof window !== "undefined" ? window.location.href : ""
-
-  useEffect(() => {
-    if (showQr && !qrDataUrl && publicUrl) {
-      import("qrcode").then(QR =>
-        QR.toDataURL(publicUrl, { width: 260, margin: 2 })
-      ).then(setQrDataUrl)
-    }
-  }, [showQr, publicUrl, qrDataUrl])
+  const [accepted, setAccepted]         = useState(budget.status === "accepted")
+  const [opcionAceptada, setOpcion]     = useState<string>(budget.opcion_aceptada ?? "")
+  const [accepting, setAccepting]       = useState("")
 
   const client = budget.clients ?? null
   const clienteNombre = client?.full_name ?? budget.cliente_nombre ?? "—"
-  const clienteRut = client?.rut ?? budget.cliente_rut ?? ""
-  const clienteTel = client?.phone ?? budget.cliente_telefono ?? ""
+  const clienteRut    = client?.rut       ?? budget.cliente_rut     ?? ""
+  const clienteTel    = client?.phone     ?? budget.cliente_telefono ?? ""
+  const clienteEmail  = client?.email     ?? budget.cliente_email    ?? ""
 
-  // Calcular totales por opción (en caso de que no estén en DB)
   const items = (budget.budget_items ?? []).filter((i: any) => i.descripcion)
   const iva = Number(budget.iva_pct ?? 19)
   const dto = Number(budget.descuento_global ?? 0)
@@ -63,10 +51,17 @@ export default function PublicBudgetView({ budget, settings }: Props) {
     return { sub, ivaM, total: sub + ivaM }
   }
 
-  const totalOrig = calcTotal("rep_genuino")
-  const totalAlt  = calcTotal("rep_korea")
-  const totalOtro = calcTotal("rep_multi")
-  const totales = [totalOrig, totalAlt, totalOtro]
+  const totales = [
+    calcTotal("rep_genuino"),
+    calcTotal("rep_korea"),
+    calcTotal("rep_multi"),
+  ]
+
+  const hasAnyPrice = items.some((i: any) => i.rep_genuino > 0 || i.rep_korea > 0 || i.rep_multi > 0)
+  const hasAlt      = items.some((i: any) => (i.rep_korea ?? 0) > 0)
+  const hasOtro     = items.some((i: any) => (i.rep_multi ?? 0) > 0)
+
+  const visibleOpts = OPCIONES.filter((o, idx) => idx === 0 || (idx === 1 && hasAlt) || (idx === 2 && hasOtro))
 
   async function handleAccept(opcion: string) {
     if (accepted || accepting) return
@@ -79,34 +74,12 @@ export default function PublicBudgetView({ budget, settings }: Props) {
       })
       if (res.ok) {
         setAccepted(true)
-        setOpcionAceptada(opcion)
+        setOpcion(opcion)
         toast.success("¡Presupuesto aceptado! El inspector será notificado.")
       } else toast.error("Error al aceptar el presupuesto")
     } catch { toast.error("Error de conexión") }
     finally { setAccepting("") }
   }
-
-  async function copyLink() {
-    await navigator.clipboard.writeText(publicUrl)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-    toast.success("Link copiado")
-  }
-
-  function shareWhatsApp() {
-    const msg = encodeURIComponent(`Hola ${clienteNombre}, te comparto el presupuesto ${budget.numero}:\n${publicUrl}`)
-    window.open(`https://wa.me/?text=${msg}`, "_blank")
-  }
-
-  function shareEmail() {
-    const subject = encodeURIComponent(`Presupuesto ${budget.numero} - ${settings.company_name || ""}`)
-    const body = encodeURIComponent(`Estimado/a ${clienteNombre},\n\nAdjunto el link de su presupuesto:\n\n${publicUrl}\n\nSaludos,\n${settings.company_name || ""}`)
-    window.location.href = `mailto:?subject=${subject}&body=${body}`
-  }
-
-  const hasAnyPrice = items.some((i: any) => i.rep_genuino > 0 || i.rep_korea > 0 || i.rep_multi > 0)
-  const hasAlt  = items.some((i: any) => (i.rep_korea  ?? 0) > 0)
-  const hasOtro = items.some((i: any) => (i.rep_multi  ?? 0) > 0)
 
   return (
     <div className="min-h-screen bg-gray-50 py-6 px-3">
@@ -159,20 +132,22 @@ export default function PublicBudgetView({ budget, settings }: Props) {
         </div>
 
         {/* Vehículo */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Vehículo</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
-            {budget.vehicle_patente && <div><p className="text-xs text-gray-400">Patente</p><p className="font-bold text-gray-900">{budget.vehicle_patente}</p></div>}
-            {budget.vehicle_marca && <div><p className="text-xs text-gray-400">Marca</p><p>{budget.vehicle_marca}</p></div>}
-            {budget.vehicle_modelo && <div><p className="text-xs text-gray-400">Modelo</p><p>{budget.vehicle_modelo}</p></div>}
-            {budget.vehicle_anio && <div><p className="text-xs text-gray-400">Año</p><p>{budget.vehicle_anio}</p></div>}
-            {budget.vehicle_version && <div><p className="text-xs text-gray-400">Versión</p><p>{budget.vehicle_version}</p></div>}
-            {budget.vehicle_color && <div><p className="text-xs text-gray-400">Color</p><p>{budget.vehicle_color}</p></div>}
-            {budget.vehicle_km && <div><p className="text-xs text-gray-400">KM</p><p>{Number(budget.vehicle_km).toLocaleString("es-CL")}</p></div>}
+        {budget.vehicle_patente && (
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Vehículo</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
+              <div><p className="text-xs text-gray-400">Patente</p><p className="font-bold text-gray-900">{budget.vehicle_patente}</p></div>
+              {budget.vehicle_marca   && <div><p className="text-xs text-gray-400">Marca</p><p>{budget.vehicle_marca}</p></div>}
+              {budget.vehicle_modelo  && <div><p className="text-xs text-gray-400">Modelo</p><p>{budget.vehicle_modelo}</p></div>}
+              {budget.vehicle_anio    && <div><p className="text-xs text-gray-400">Año</p><p>{budget.vehicle_anio}</p></div>}
+              {budget.vehicle_version && <div><p className="text-xs text-gray-400">Versión</p><p>{budget.vehicle_version}</p></div>}
+              {budget.vehicle_color   && <div><p className="text-xs text-gray-400">Color</p><p>{budget.vehicle_color}</p></div>}
+              {budget.vehicle_km      && <div><p className="text-xs text-gray-400">KM</p><p>{Number(budget.vehicle_km).toLocaleString("es-CL")}</p></div>}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Tabla ítems — solo Original si no hay multi-precio */}
+        {/* Tabla ítems */}
         {items.length > 0 && (
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 pt-3 pb-2">Detalle de trabajos y repuestos</p>
@@ -181,9 +156,9 @@ export default function PublicBudgetView({ budget, settings }: Props) {
                 <thead className="bg-gray-50 text-xs text-gray-500">
                   <tr>
                     <th className="px-3 py-2 text-left font-medium">Descripción</th>
-                    {hasAnyPrice && <th className="px-2 py-2 text-right font-medium whitespace-nowrap">Orig.</th>}
-                    {hasAlt  && <th className="px-2 py-2 text-right font-medium whitespace-nowrap">Alt.</th>}
-                    {hasOtro && <th className="px-2 py-2 text-right font-medium whitespace-nowrap">Otro</th>}
+                    {hasAnyPrice && <th className="px-2 py-2 text-right font-medium whitespace-nowrap text-blue-600">Orig.</th>}
+                    {hasAlt      && <th className="px-2 py-2 text-right font-medium whitespace-nowrap text-amber-600">Alt.</th>}
+                    {hasOtro     && <th className="px-2 py-2 text-right font-medium whitespace-nowrap text-green-700">Otro</th>}
                     <th className="px-2 py-2 text-right font-medium whitespace-nowrap">M. Obra</th>
                     {items.some((i: any) => i.dcto_pct > 0) && <th className="px-2 py-2 text-center font-medium">Dcto.</th>}
                   </tr>
@@ -223,10 +198,10 @@ export default function PublicBudgetView({ budget, settings }: Props) {
           </div>
         )}
 
-        {/* Opciones de precio */}
-        <div className={`grid gap-3 ${hasOtro ? "grid-cols-3" : hasAlt ? "grid-cols-2" : "grid-cols-1"}`}>
-          {OPCIONES.filter((o, idx) => idx === 0 || (idx === 1 && hasAlt) || (idx === 2 && hasOtro)).map((o, idx) => {
-            const t = totales[idx === 0 ? 0 : idx === 1 ? 1 : 2]
+        {/* Opciones de precio + aceptar */}
+        <div className={`grid gap-3 ${visibleOpts.length === 3 ? "grid-cols-3" : visibleOpts.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}>
+          {visibleOpts.map((o, idx) => {
+            const t = totales[idx]
             const isSelected = accepted && opcionAceptada === o.key
             return (
               <div key={o.key} className={`rounded-xl border-2 ${o.color} p-3 sm:p-4 relative ${isSelected ? "ring-2 ring-green-400" : ""}`}>
@@ -254,7 +229,7 @@ export default function PublicBudgetView({ budget, settings }: Props) {
           })}
         </div>
 
-        {/* Descripción servicio */}
+        {/* Descripción */}
         {budget.descripcion_servicio && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
             <p className="text-xs font-semibold text-yellow-700 uppercase tracking-wide mb-1">Observaciones / Descripción del servicio</p>
@@ -268,9 +243,9 @@ export default function PublicBudgetView({ budget, settings }: Props) {
             <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2">Información de pago</p>
             {settings.payment_note && <p className="text-sm text-gray-700 mb-2">{settings.payment_note}</p>}
             <div className="text-sm text-gray-700 space-y-1">
-              {settings.company_name && <p><span className="font-medium">Razón social:</span> {settings.company_name}</p>}
-              {settings.payment_rut && <p><span className="font-medium">RUT:</span> {settings.payment_rut}</p>}
-              {settings.payment_bank && <p><span className="font-medium">Banco:</span> {settings.payment_bank}</p>}
+              {settings.company_name          && <p><span className="font-medium">Razón social:</span> {settings.company_name}</p>}
+              {settings.payment_rut           && <p><span className="font-medium">RUT:</span> {settings.payment_rut}</p>}
+              {settings.payment_bank          && <p><span className="font-medium">Banco:</span> {settings.payment_bank}</p>}
               {settings.payment_account_type && settings.payment_account_number && (
                 <p><span className="font-medium">{settings.payment_account_type}:</span> {settings.payment_account_number}</p>
               )}
@@ -285,9 +260,7 @@ export default function PublicBudgetView({ budget, settings }: Props) {
             <div>
               <p className="text-xs text-gray-400 mb-1">Inspector a cargo</p>
               <p className="font-semibold text-gray-800">{budget.profiles?.full_name ?? "—"}</p>
-              {budget.profiles?.professional_title && (
-                <p className="text-xs text-gray-500">{budget.profiles.professional_title}</p>
-              )}
+              {budget.profiles?.professional_title && <p className="text-xs text-gray-500">{budget.profiles.professional_title}</p>}
               {budget.profiles?.signature_url && (
                 <img src={budget.profiles.signature_url} alt="Firma" className="mt-2 h-10 object-contain" />
               )}
@@ -300,61 +273,16 @@ export default function PublicBudgetView({ budget, settings }: Props) {
         </div>
 
         {/* Compartir */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-          <p className="text-xs font-medium text-gray-500 mb-3">Compartir presupuesto</p>
-          <div className="flex flex-wrap gap-2">
-            <button onClick={copyLink}
-              className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition">
-              {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? "Copiado" : "Copiar link"}
-            </button>
-            <button onClick={shareEmail}
-              className="flex items-center gap-1.5 px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-xs font-medium transition">
-              <Mail size={13} /> Email
-            </button>
-            <button onClick={shareWhatsApp}
-              className="flex items-center gap-1.5 px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-xs font-medium transition">
-              <MessageCircle size={13} /> WhatsApp
-            </button>
-            <a href={`/api/pdf/budget/${budget.id}`} target="_blank"
-              className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition">
-              <Download size={13} /> PDF
-            </a>
-            <button onClick={() => setShowQr(v => !v)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition ${showQr ? "bg-indigo-600 text-white" : "bg-indigo-100 hover:bg-indigo-200 text-indigo-700"}`}>
-              <QrCode size={13} /> QR
-            </button>
-          </div>
-
-          {showQr && (
-            <div className="mt-4 flex flex-col items-center gap-3 p-4 bg-gray-50 rounded-xl">
-              <div className="flex items-center justify-between w-full">
-                <p className="text-xs font-medium text-gray-600">Código QR del presupuesto</p>
-                <button onClick={() => setShowQr(false)}><X size={14} className="text-gray-400" /></button>
-              </div>
-              {qrDataUrl ? (
-                <img src={qrDataUrl} alt="QR" className="w-48 h-48 rounded-lg shadow-sm" />
-              ) : (
-                <div className="w-48 h-48 bg-gray-200 rounded-lg animate-pulse" />
-              )}
-              <div className="flex gap-3 flex-wrap justify-center">
-                {qrDataUrl && (
-                  <a href={qrDataUrl} download={`qr-${budget.numero}.png`}
-                    className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
-                    Descargar QR
-                  </a>
-                )}
-                <button onClick={shareWhatsApp}
-                  className="text-xs text-green-600 hover:text-green-800 font-medium flex items-center gap-1">
-                  <MessageCircle size={11} /> WhatsApp
-                </button>
-                <button onClick={shareEmail}
-                  className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
-                  <Mail size={11} /> Email
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        <ShareBudgetPanel
+          budgetId={budget.id}
+          budgetNumero={budget.numero}
+          clienteNombre={clienteNombre}
+          clienteEmail={clienteEmail}
+          clienteTel={clienteTel}
+          vigenciaDias={budget.vigencia_dias}
+          formaPago={budget.forma_pago}
+          companyName={settings.company_name ?? ""}
+        />
 
         <p className="text-center text-xs text-gray-400 pb-4">VALOR TOTAL INCLUYE IVA · NO VÁLIDO COMO BOLETA/FACTURA</p>
       </div>
