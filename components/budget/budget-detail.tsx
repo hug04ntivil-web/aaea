@@ -17,6 +17,8 @@ export default function BudgetDetail({ budget, isPublic = false }: Props) {
   const [accepting, setAccepting] = useState(false)
   const [accepted, setAccepted] = useState(budget.status === "accepted")
   const [opcionAceptada, setOpcionAceptada] = useState(budget.opcion_aceptada ?? "")
+  const publicUrl = typeof window !== "undefined" ? `${window.location.origin}/q/${budget.public_token}` : `/q/${budget.public_token}`
+
   const [showQr, setShowQr] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState("")
 
@@ -27,8 +29,6 @@ export default function BudgetDetail({ budget, isPublic = false }: Props) {
       ).then(setQrDataUrl)
     }
   }, [showQr, publicUrl, qrDataUrl])
-
-  const publicUrl = typeof window !== "undefined" ? `${window.location.origin}/q/${budget.public_token}` : `/q/${budget.public_token}`
 
   const opciones = [
     { key: "genuino", label: "Genuino", total: budget.total_genuino, color: "border-blue-300 bg-blue-50", badge: "bg-blue-100 text-blue-700" },
