@@ -34,7 +34,7 @@ export default async function EditBudgetPage({ params }: { params: Promise<{ id:
       <BudgetForm
         inspectorId={user.id}
         clients={clients ?? []}
-        inspections={inspections ?? []}
+        inspections={(inspections ?? []) as any}
         settings={settings}
         initialBudget={budget}
         mode="edit"
