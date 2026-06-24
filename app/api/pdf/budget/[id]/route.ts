@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import PDFDocument from "pdfkit"
+import QRCode from "qrcode"
 
 function fmt(n: number | null) {
   return (n ?? 0).toLocaleString("es-CL")
@@ -11,9 +12,10 @@ function formatDate(d: string) {
   return new Date(d).toLocaleDateString("es-CL", { day: "2-digit", month: "2-digit", year: "numeric" })
 }
 
-export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
+  const baseUrl = req.nextUrl.origin
 
   const { data: budget } = await supabase
     .from("budgets")
@@ -22,6 +24,15 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
     .single()
 
   if (!budget) return new NextResponse("Not found", { status: 404 })
+
+  // QR code para el portal público del presupuesto
+  const publicUrl = budget.public_token ? `${baseUrl}/q/${budget.public_token}` : null
+  let qrBuf: Buffer | null = null
+  if (publicUrl) {
+    try {
+      qrBuf = await QRCode.toBuffer(publicUrl, { type: "png", width: 90, margin: 1, color: { dark: "#0f172a", light: "#ffffff" } }) as Buffer
+    } catch { /* sin QR */ }
+  }
 
   const doc = new PDFDocument({ margin: 40, size: "A4" })
   const chunks: Buffer[] = []
@@ -34,9 +45,16 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
     doc.rect(40, 40, 515, 60).fill("#1e293b")
     doc.fillColor("#ffffff").fontSize(16).font("Helvetica-Bold").text("AAEA Inspecciones", 60, 52)
     doc.fontSize(8).font("Helvetica").text("Sistema de inspección vehicular profesional", 60, 72)
-    doc.fillColor("#93c5fd").fontSize(11).font("Helvetica-Bold").text("PRESUPUESTO DE REPARACIÓN", 330, 52, { align: "right", width: 205 })
-    doc.fillColor("#94a3b8").fontSize(9).font("Helvetica-Bold").text(budget.numero, 330, 66, { align: "right", width: 205 })
-    doc.fillColor("#94a3b8").fontSize(7).font("Helvetica").text(formatDate(budget.created_at), 330, 78, { align: "right", width: 205 })
+    if (qrBuf) {
+      doc.image(qrBuf, 460, 43, { width: 54, height: 54 })
+      doc.fillColor("#93c5fd").fontSize(10).font("Helvetica-Bold").text("PRESUPUESTO DE REPARACIÓN", 290, 50, { align: "right", width: 165 })
+      doc.fillColor("#94a3b8").fontSize(8).font("Helvetica-Bold").text(budget.numero, 290, 63, { align: "right", width: 165 })
+      doc.fillColor("#94a3b8").fontSize(7).font("Helvetica").text(formatDate(budget.created_at), 290, 75, { align: "right", width: 165 })
+    } else {
+      doc.fillColor("#93c5fd").fontSize(11).font("Helvetica-Bold").text("PRESUPUESTO DE REPARACIÓN", 330, 52, { align: "right", width: 205 })
+      doc.fillColor("#94a3b8").fontSize(9).font("Helvetica-Bold").text(budget.numero, 330, 66, { align: "right", width: 205 })
+      doc.fillColor("#94a3b8").fontSize(7).font("Helvetica").text(formatDate(budget.created_at), 330, 78, { align: "right", width: 205 })
+    }
 
     let y = 120
 

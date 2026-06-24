@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import PDFDocument from "pdfkit"
+import QRCode from "qrcode"
 
 function scoreColor(nota: number): string {
   return nota >= 6.5 ? "#16a34a" : nota >= 5 ? "#d97706" : "#dc2626"
@@ -18,9 +19,10 @@ function formatDate(d: string) {
   return new Date(d).toLocaleDateString("es-CL", { day: "2-digit", month: "2-digit", year: "numeric" })
 }
 
-export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
+  const baseUrl = req.nextUrl.origin
 
   const { data: ins } = await supabase
     .from("inspections")
@@ -36,6 +38,15 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
     .eq("inspection_id", id)
     .order("section")
     .order("sort_order")
+
+  // QR code para el portal público
+  const publicUrl = ins.public_token ? `${baseUrl}/p/${ins.public_token}` : null
+  let qrBuf: Buffer | null = null
+  if (publicUrl) {
+    try {
+      qrBuf = await QRCode.toBuffer(publicUrl, { type: "png", width: 90, margin: 1, color: { dark: "#0f172a", light: "#ffffff" } }) as Buffer
+    } catch { /* sin QR */ }
+  }
 
   // Pre-fetch photo buffers (async, antes de generar el PDF)
   const photoBuffers: Buffer[] = []
@@ -61,8 +72,14 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
     doc.rect(40, 40, 515, 60).fill("#1e293b")
     doc.fillColor("#ffffff").fontSize(16).font("Helvetica-Bold").text("AAEA Inspecciones", 60, 52)
     doc.fontSize(8).font("Helvetica").text("Sistema de inspección vehicular profesional", 60, 72)
-    doc.fillColor("#93c5fd").fontSize(11).font("Helvetica-Bold").text("INFORME DE INSPECCIÓN", 380, 52, { align: "right", width: 155 })
-    doc.fillColor("#94a3b8").fontSize(8).font("Helvetica").text(formatDate(ins.fecha_inspeccion), 380, 68, { align: "right", width: 155 })
+    if (qrBuf) {
+      doc.image(qrBuf, 460, 43, { width: 54, height: 54 })
+      doc.fillColor("#93c5fd").fontSize(10).font("Helvetica-Bold").text("INFORME DE INSPECCIÓN", 310, 52, { align: "right", width: 145 })
+      doc.fillColor("#94a3b8").fontSize(8).font("Helvetica").text(formatDate(ins.fecha_inspeccion), 310, 66, { align: "right", width: 145 })
+    } else {
+      doc.fillColor("#93c5fd").fontSize(11).font("Helvetica-Bold").text("INFORME DE INSPECCIÓN", 380, 52, { align: "right", width: 155 })
+      doc.fillColor("#94a3b8").fontSize(8).font("Helvetica").text(formatDate(ins.fecha_inspeccion), 380, 68, { align: "right", width: 155 })
+    }
 
     let y = 120
 

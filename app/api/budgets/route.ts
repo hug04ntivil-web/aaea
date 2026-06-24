@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { randomBytes } from "crypto"
 
 export async function POST(request: NextRequest) {
@@ -8,7 +7,6 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
 
-  const admin = createAdminClient()
   const body = await request.json()
   const { clientId, inspectionId, items, notes, ivaPct = 19, manoDeObra = 0 } = body
 
@@ -18,7 +16,7 @@ export async function POST(request: NextRequest) {
 
   try {
     // Obtener siguiente número de presupuesto
-    const { data: setting } = await admin
+    const { data: setting } = await supabase
       .from("settings")
       .select("value")
       .eq("key", "budget_next_number")
@@ -38,7 +36,7 @@ export async function POST(request: NextRequest) {
 
     const publicToken = randomBytes(16).toString("hex")
 
-    const { data: budget, error: bErr } = await admin
+    const { data: budget, error: bErr } = await supabase
       .from("budgets")
       .insert({
         numero,
@@ -67,11 +65,11 @@ export async function POST(request: NextRequest) {
       precio_korea: i.precio_korea,
       precio_multi: i.precio_multi,
     }))
-    const { error: biErr } = await admin.from("budget_items").insert(budgetItems)
+    const { error: biErr } = await supabase.from("budget_items").insert(budgetItems)
     if (biErr) throw new Error(biErr.message)
 
     // Incrementar número
-    await admin.from("settings").update({ value: String(nextNum + 1) }).eq("key", "budget_next_number")
+    await supabase.from("settings").update({ value: String(nextNum + 1) }).eq("key", "budget_next_number")
 
     return NextResponse.json({ success: true, budgetId: budget.id, numero })
   } catch (err: any) {

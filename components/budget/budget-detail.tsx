@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { toast } from "sonner"
-import { Copy, Check, Mail, MessageCircle, CheckCircle, Download } from "lucide-react"
+import { Copy, Check, Mail, MessageCircle, CheckCircle, Download, QrCode, X } from "lucide-react"
 import { formatDate } from "@/lib/utils"
 
 interface Props {
@@ -17,6 +17,16 @@ export default function BudgetDetail({ budget, isPublic = false }: Props) {
   const [accepting, setAccepting] = useState(false)
   const [accepted, setAccepted] = useState(budget.status === "accepted")
   const [opcionAceptada, setOpcionAceptada] = useState(budget.opcion_aceptada ?? "")
+  const [showQr, setShowQr] = useState(false)
+  const [qrDataUrl, setQrDataUrl] = useState("")
+
+  useEffect(() => {
+    if (showQr && !qrDataUrl) {
+      import("qrcode").then(QR =>
+        QR.toDataURL(publicUrl, { width: 280, margin: 2, color: { dark: "#0f172a", light: "#ffffff" } })
+      ).then(setQrDataUrl)
+    }
+  }, [showQr, publicUrl, qrDataUrl])
 
   const publicUrl = typeof window !== "undefined" ? `${window.location.origin}/q/${budget.public_token}` : `/q/${budget.public_token}`
 
@@ -185,7 +195,34 @@ export default function BudgetDetail({ budget, isPublic = false }: Props) {
               className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition">
               <Download size={13} /> PDF
             </button>
+            <button onClick={() => setShowQr(v => !v)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition ${showQr ? "bg-indigo-600 text-white" : "bg-indigo-100 hover:bg-indigo-200 text-indigo-700"}`}>
+              <QrCode size={13} /> QR
+            </button>
           </div>
+
+          {showQr && (
+            <div className="mt-4 flex flex-col items-center gap-3 p-4 bg-gray-50 rounded-xl">
+              <div className="flex items-center justify-between w-full">
+                <p className="text-xs font-medium text-gray-600">Escanea para ver el presupuesto</p>
+                <button onClick={() => setShowQr(false)} className="text-gray-400 hover:text-gray-600 transition">
+                  <X size={14} />
+                </button>
+              </div>
+              {qrDataUrl ? (
+                <img src={qrDataUrl} alt="QR Presupuesto" className="w-52 h-52 rounded-lg shadow-sm" />
+              ) : (
+                <div className="w-52 h-52 bg-gray-200 rounded-lg animate-pulse" />
+              )}
+              <p className="text-[10px] text-gray-400 text-center max-w-[200px] break-all">{publicUrl}</p>
+              {qrDataUrl && (
+                <a href={qrDataUrl} download={`qr-presupuesto-${budget.numero}.png`}
+                  className="text-xs text-indigo-600 hover:text-indigo-800 transition font-medium">
+                  Descargar imagen QR
+                </a>
+              )}
+            </div>
+          )}
         </div>
       )}
 

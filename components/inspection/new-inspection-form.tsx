@@ -33,7 +33,7 @@ const SECTION_ITEMS = {
 }
 
 function ScoreBar({ value }: { value: number }) {
-  const pct = (value / 7) * 100
+  const pct = Math.round((value / 7) * 100)
   return (
     <div className="flex items-center gap-2">
       <span className={cn("text-2xl font-black tabular-nums",
@@ -41,7 +41,12 @@ function ScoreBar({ value }: { value: number }) {
       )}>
         {value.toFixed(1)}
       </span>
-      <span className="text-sm text-gray-400">/ 7.0</span>
+      <div className="flex flex-col leading-none">
+        <span className="text-xs text-gray-400">/ 7.0</span>
+        <span className={cn("text-xs font-semibold",
+          value >= 6.5 ? "text-green-500" : value >= 5 ? "text-yellow-500" : "text-red-500"
+        )}>{pct}%</span>
+      </div>
       <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
         <div
           className={cn("h-full rounded-full transition-all duration-500",
@@ -640,7 +645,10 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
                 <p className={cn("text-5xl font-black", notaFinal >= 6.5 ? "text-green-400" : notaFinal >= 5 ? "text-yellow-400" : "text-red-400")}>
                   {notaFinal.toFixed(1)}
                 </p>
-                <p className="text-slate-500 text-sm mt-1">/ 7.0</p>
+                <p className="text-slate-500 text-sm mt-0.5">/ 7.0</p>
+                <p className={cn("text-lg font-bold mt-0.5", notaFinal >= 6.5 ? "text-green-400" : notaFinal >= 5 ? "text-yellow-400" : "text-red-400")}>
+                  {Math.round((notaFinal / 7) * 100)}%
+                </p>
               </div>
             </div>
           )}
