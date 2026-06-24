@@ -61,16 +61,20 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    const dto = Number(descuentoGlobal) || 0
-    const iva = Number(ivaPct)
+    const dtoP = Number(descuentoGlobal) || 0   // porcentaje de descuento global
+    const iva  = Number(ivaPct)
 
-    const granTotalOrig = sumRepOrig + sumMO
-    const granTotalAlt  = sumRepAlt  + sumMO
-    const granTotalOtro = sumRepOtro + sumMO
+    const netoOrig = sumRepOrig + sumMO
+    const netoAlt  = sumRepAlt  + sumMO
+    const netoOtro = sumRepOtro + sumMO
 
-    const subOrig = granTotalOrig - dto
-    const subAlt  = granTotalAlt  - dto
-    const subOtro = granTotalOtro - dto
+    const dtoAmtOrig = Math.round(netoOrig * dtoP / 100)
+    const dtoAmtAlt  = Math.round(netoAlt  * dtoP / 100)
+    const dtoAmtOtro = Math.round(netoOtro * dtoP / 100)
+
+    const subOrig = netoOrig - dtoAmtOrig
+    const subAlt  = netoAlt  - dtoAmtAlt
+    const subOtro = netoOtro - dtoAmtOtro
 
     const ivaOrig = Math.round(subOrig * iva / 100)
     const ivaAlt  = Math.round(subAlt  * iva / 100)
@@ -105,8 +109,8 @@ export async function POST(request: NextRequest) {
       // Totales 3 opciones
       total_repuestos: sumRepOrig,
       total_mano_obra: sumMO,
-      gran_total:      granTotalOrig,
-      descuento_global: dto,
+      gran_total:      netoOrig,
+      descuento_global: dtoP,
       // Opción Original (default)
       subtotal:   subOrig,
       iva_pct:    iva,
@@ -116,8 +120,8 @@ export async function POST(request: NextRequest) {
       total_alternativo: totalAlt,
       total_otro:        totalOtro,
       // También guardar los 3 gran_totales netos
-      gran_total_alternativo: granTotalAlt,
-      gran_total_otro:        granTotalOtro,
+      gran_total_alternativo: netoAlt,
+      gran_total_otro:        netoOtro,
       status: "draft",
       public_token: publicToken,
     }

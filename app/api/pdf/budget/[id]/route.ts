@@ -68,8 +68,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const hasAlt  = items.some((i: any) => (i.rep_korea ?? 0) > 0)
   const hasOtro = items.some((i: any) => (i.rep_multi ?? 0) > 0)
 
-  const iva = Number(budget.iva_pct ?? 19)
-  const dto = Number(budget.descuento_global ?? 0)
+  const iva  = Number(budget.iva_pct ?? 19)
+  const dtoP = Number(budget.descuento_global ?? 0)   // global discount in %
 
   function calcColTotal(repField: string) {
     const sumR = items.reduce((a: number, i: any) => {
@@ -80,9 +80,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       const f = 1 - (Number(i.dcto_pct) || 0) / 100
       return a + Math.round((Number(i.val_mano_obra) || 0) * f)
     }, 0)
-    const sub = sumR + sumMO - dto
-    const ivaM = Math.round(sub * iva / 100)
-    return { sub, ivaM, total: sub + ivaM, sumR, sumMO }
+    return { sumR, sumMO }
   }
 
   const tOrig = calcColTotal("rep_genuino")
@@ -258,130 +256,101 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // Borde externo de la tabla
     doc.rect(LX, tableStartY, PAGE_W, y - tableStartY).strokeColor("#d1d5db").lineWidth(0.4).stroke()
 
-    // Fila subtotales
-    if (y > 535) { doc.addPage(); y = MARGIN }
-    doc.rect(LX, y, PAGE_W, 14).fill("#e0f2fe")
-    const sTY = y + 3.5
-    let stx = LX + CN + CD + CG
-    doc.fillColor("#1d4ed8").fontSize(6.5).font("Helvetica-Bold")
-      .text(`Subtotal rep.: $${fmt(tOrig.sumR)}`, stx, sTY, { width: CR, align: "right" }); stx += CR
-    if (hasAlt)  { doc.fillColor("#b45309").text(`$${fmt(tAlt.sumR)}`,  stx, sTY, { width: CR, align: "right" }); stx += CR }
-    if (hasOtro) { doc.fillColor("#15803d").text(`$${fmt(tOtro.sumR)}`, stx, sTY, { width: CR, align: "right" }); stx += CR }
-    doc.fillColor("#374151").text(`M.O.: $${fmt(tOrig.sumMO)}`, stx, sTY, { width: CMO, align: "right" })
-    y += 18
-
-    // ── CUADROS OPCIONES (compactos) + RESUMEN TOTAL (grande) ────────────
+    // ── CUADROS OPCIONES (solo repuestos por tipo) + RESUMEN TOTAL ───────
     if (y > 505) { doc.addPage(); y = MARGIN }
-    y += 6
+    y += 8
 
     const boxes = [
-      { label: "OPCIÓN ORIGINAL",   t: tOrig, color: "#1d4ed8", bg: "#eff6ff", border: "#bfdbfe" },
-      ...(hasAlt  ? [{ label: "OPCIÓN ALTERNATIVA", t: tAlt,  color: "#b45309", bg: "#fffbeb", border: "#fde68a" }] : []),
-      ...(hasOtro ? [{ label: "OPCIÓN OTRO",         t: tOtro, color: "#15803d", bg: "#f0fdf4", border: "#a7f3d0" }] : []),
+      { label: "REPUESTOS ORIGINALES",    sumR: tOrig.sumR, color: "#1d4ed8", bg: "#eff6ff", border: "#bfdbfe" },
+      ...(hasAlt  ? [{ label: "REPUESTOS ALTERNATIVOS", sumR: tAlt.sumR,  color: "#b45309", bg: "#fffbeb", border: "#fde68a" }] : []),
+      ...(hasOtro ? [{ label: "REPUESTOS OTRO",          sumR: tOtro.sumR, color: "#15803d", bg: "#f0fdf4", border: "#a7f3d0" }] : []),
     ]
 
-    // Totales globales (suma de TODOS los repuestos + MO = total completo del presupuesto)
+    // Totales para RESUMEN TOTAL
     const sumRepAll = tOrig.sumR + tAlt.sumR + tOtro.sumR
-    const subAll    = sumRepAll + tOrig.sumMO - dto
+    const sumMOAll  = tOrig.sumMO
+    const neto      = sumRepAll + sumMOAll
+    const dtoAmt    = dtoP > 0 ? Math.round(neto * dtoP / 100) : 0
+    const subAll    = neto - dtoAmt
     const ivaAll    = Math.round(subAll * iva / 100)
     const totalAll  = subAll + ivaAll
 
-    // Layout: opciones (izquierda, compactas) | gran total (derecha, más ancho)
-    const GRAND_W    = 270
-    const optsAreaW  = PAGE_W - GRAND_W - 8
-    const optGap     = 5
-    const numOpts    = boxes.length
-    const optW       = Math.floor((optsAreaW - optGap * (numOpts - 1)) / numOpts)
+    // Dimensiones
+    const GRAND_W  = 270
+    const optsAreaW = PAGE_W - GRAND_W - 8
+    const optGap   = 5
+    const numOpts  = boxes.length
+    const optW     = Math.floor((optsAreaW - optGap * (numOpts - 1)) / numOpts)
 
-    const HDR_H_B  = 13
-    const FTR_H_B  = 16
-    // Opciones compactas: descuento? + neto + IVA
-    const BOX_H    = HDR_H_B + 3 + (dto > 0 ? 3 : 2) * 8 + FTR_H_B
-    // RESUMEN TOTAL: total rep + MO + sep + dto? + neto + IVA
-    const grandRows = 2 + (dto > 0 ? 1 : 0)   // total rep + MO + dto? + neto + IVA = 4-5 rows
-    const GRAND_H  = HDR_H_B + 3 + (grandRows + 2) * 8 + 4 + FTR_H_B + 2
+    const BOX_HDR = 13
+    const BOX_FTR = 18
+    // Option box: solo header + 1 fila de valor + footer
+    const BOX_H = BOX_HDR + 4 + 12 + BOX_FTR
+    // Grand total: rows×11 + separador + header + padding + footer
+    const GRAND_ROWS = 4 + (dtoP > 0 ? 1 : 0)   // rep + MO + [dto] + subtotal + IVA
+    const GRAND_H = BOX_HDR + 5 + GRAND_ROWS * 11 + 5 + BOX_FTR + 4
 
-    // Opciones compactas
+    // Cajas de opciones (solo muestran repuesto total de ese tipo)
     boxes.forEach((box, idx) => {
       const bx = LX + idx * (optW + optGap)
       doc.rect(bx, y, optW, BOX_H).fill(box.bg)
       doc.rect(bx, y, optW, BOX_H).stroke(box.border).lineWidth(0.5)
-      doc.rect(bx, y, optW, HDR_H_B).fill(box.color)
+      doc.rect(bx, y, optW, BOX_HDR).fill(box.color)
       doc.fillColor("#ffffff").fontSize(6).font("Helvetica-Bold")
         .text(box.label, bx, y + 3.5, { align: "center", width: optW })
 
-      let ry = y + HDR_H_B + 3
-      const cW = optW - 8
-      if (dto > 0) {
-        doc.fillColor("#6b7280").fontSize(5.5).font("Helvetica")
-          .text("Descuento:", bx + 4, ry, { width: cW * 0.5 })
-        doc.fillColor("#dc2626").text(`-$${fmt(dto)}`, bx + 4, ry, { width: cW, align: "right" }); ry += 8
-      }
-      doc.fillColor("#374151").fontSize(5.5).font("Helvetica")
-        .text("Neto:", bx + 4, ry, { width: cW * 0.5 })
-      doc.fillColor("#111827").font("Helvetica-Bold")
-        .text(`$${fmt(box.t.sub)}`, bx + 4, ry, { width: cW, align: "right" }); ry += 8
-      doc.fillColor("#374151").font("Helvetica")
-        .text(`IVA (${iva}%):`, bx + 4, ry, { width: cW * 0.5 })
-      doc.fillColor("#374151")
-        .text(`$${fmt(box.t.ivaM)}`, bx + 4, ry, { width: cW, align: "right" })
+      // Valor centrado en el cuerpo
+      const midY = y + BOX_HDR + 4
+      doc.fillColor(box.color).fontSize(8).font("Helvetica-Bold")
+        .text(`$${fmt(box.sumR)}`, bx + 4, midY, { align: "center", width: optW - 8 })
 
-      const fY = y + BOX_H - FTR_H_B
-      doc.rect(bx, fY, optW, FTR_H_B).fill(box.color)
-      doc.fillColor("#ffffff").fontSize(7).font("Helvetica-Bold")
-        .text(`$${fmt(box.t.total)}`, bx + 3, fY + 4, { align: "center", width: optW - 6 })
+      // Footer con label
+      const fY = y + BOX_H - BOX_FTR
+      doc.rect(bx, fY, optW, BOX_FTR).fill(box.color)
+      doc.fillColor("#ffffff").fontSize(6).font("Helvetica-Bold")
+        .text("SUBTOTAL REPUESTOS", bx + 3, fY + 5, { align: "center", width: optW - 6 })
     })
 
-    // ── RESUMEN TOTAL COMPLETO (lado derecho, más grande) ─────────────────
+    // ── RESUMEN TOTAL DEL PRESUPUESTO (más grande, lado derecho) ─────────
     const grandX = LX + PAGE_W - GRAND_W
 
-    // Header
     doc.rect(grandX, y, GRAND_W, GRAND_H).fill("#f0f9ff")
     doc.rect(grandX, y, GRAND_W, GRAND_H).stroke("#93c5fd").lineWidth(0.8)
-    doc.rect(grandX, y, GRAND_W, HDR_H_B).fill("#1e40af")
-    doc.fillColor("#ffffff").fontSize(7).font("Helvetica-Bold")
-      .text("RESUMEN TOTAL DEL PRESUPUESTO", grandX, y + 3.5, { align: "center", width: GRAND_W })
+    doc.rect(grandX, y, GRAND_W, BOX_HDR).fill("#1e40af")
+    doc.fillColor("#ffffff").fontSize(7.5).font("Helvetica-Bold")
+      .text("RESUMEN TOTAL DEL PRESUPUESTO", grandX, y + 3, { align: "center", width: GRAND_W })
 
-    let gY  = y + HDR_H_B + 3
-    const gCW  = GRAND_W - 10
-    const gL   = GRAND_W * 0.52
+    let gY  = y + BOX_HDR + 6
+    const gCW = GRAND_W - 12
+    const gL  = GRAND_W * 0.55
 
-    // Total repuestos (suma de los 3 tipos)
-    doc.fillColor("#374151").fontSize(5.5).font("Helvetica")
-      .text("Total repuestos:", grandX + 5, gY, { width: gL })
-    doc.fillColor("#1d4ed8").font("Helvetica-Bold")
-      .text(`$${fmt(sumRepAll)}`, grandX + 5, gY, { width: gCW, align: "right" }); gY += 8
-
-    doc.fillColor("#374151").font("Helvetica")
-      .text("Mano de obra:", grandX + 5, gY, { width: gL })
-    doc.fillColor("#374151").font("Helvetica-Bold")
-      .text(`$${fmt(tOrig.sumMO)}`, grandX + 5, gY, { width: gCW, align: "right" }); gY += 8
-
-    // Separador
-    doc.moveTo(grandX + 5, gY).lineTo(grandX + GRAND_W - 5, gY).strokeColor("#bfdbfe").lineWidth(0.5).stroke(); gY += 4
-
-    if (dto > 0) {
-      doc.fillColor("#374151").font("Helvetica")
-        .text(`Descuento (${budget.descuento_global}):`, grandX + 5, gY, { width: gL })
-      doc.fillColor("#dc2626").font("Helvetica-Bold")
-        .text(`-$${fmt(dto)}`, grandX + 5, gY, { width: gCW, align: "right" }); gY += 8
+    const row = (label: string, value: string, labelColor = "#374151", valColor = "#111827", bold = false) => {
+      doc.fillColor(labelColor).fontSize(7).font("Helvetica").text(label, grandX + 6, gY, { width: gL })
+      doc.fillColor(valColor).fontSize(7.5).font(bold ? "Helvetica-Bold" : "Helvetica")
+        .text(value, grandX + 6, gY, { width: gCW, align: "right" })
+      gY += 11
     }
-    doc.fillColor("#374151").font("Helvetica")
-      .text("Subtotal neto:", grandX + 5, gY, { width: gL })
-    doc.fillColor("#1e3a5f").font("Helvetica-Bold")
-      .text(`$${fmt(subAll)}`, grandX + 5, gY, { width: gCW, align: "right" }); gY += 8
-    doc.fillColor("#374151").font("Helvetica")
-      .text(`IVA (${iva}%):`, grandX + 5, gY, { width: gL })
-    doc.fillColor("#374151").font("Helvetica-Bold")
-      .text(`$${fmt(ivaAll)}`, grandX + 5, gY, { width: gCW, align: "right" })
 
-    // Footer total a pagar
-    const gFY = y + GRAND_H - FTR_H_B
-    doc.rect(grandX, gFY, GRAND_W, FTR_H_B).fill("#1d4ed8")
-    doc.fillColor("#ffffff").fontSize(9).font("Helvetica-Bold")
-      .text(`TOTAL A PAGAR: $${fmt(totalAll)}`, grandX + 4, gFY + 4, { align: "center", width: GRAND_W - 8 })
+    row("Total repuestos:", `$${fmt(sumRepAll)}`, "#374151", "#1d4ed8", true)
+    row("Mano de obra:",    `$${fmt(sumMOAll)}`,   "#374151", "#374151", true)
 
-    y += GRAND_H + 12
+    // Separador fino
+    doc.moveTo(grandX + 6, gY - 2).lineTo(grandX + GRAND_W - 6, gY - 2)
+      .strokeColor("#bfdbfe").lineWidth(0.4).stroke()
+
+    if (dtoP > 0) {
+      row(`Descuento (${dtoP}%):`, `-$${fmt(dtoAmt)}`, "#374151", "#dc2626", true)
+    }
+    row("Subtotal neto:", `$${fmt(subAll)}`, "#374151", "#1e3a5f", true)
+    row(`IVA (${iva}%):`, `$${fmt(ivaAll)}`, "#374151", "#374151", false)
+
+    // Footer prominente TOTAL A PAGAR
+    const gFY = y + GRAND_H - BOX_FTR
+    doc.rect(grandX, gFY, GRAND_W, BOX_FTR).fill("#1d4ed8")
+    doc.fillColor("#ffffff").fontSize(11).font("Helvetica-Bold")
+      .text(`TOTAL A PAGAR: $${fmt(totalAll)}`, grandX + 4, gFY + 3, { align: "center", width: GRAND_W - 8 })
+
+    y += Math.max(BOX_H, GRAND_H) + 12
 
     // ── DESCRIPCIÓN DEL SERVICIO / OBSERVACIONES ──────────────────────────
     if (budget.descripcion_servicio) {

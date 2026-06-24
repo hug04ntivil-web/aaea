@@ -495,8 +495,8 @@ export default function BudgetForm({ clients, inspections, settings, initialBudg
         </div>
         <div className="flex flex-wrap gap-4 text-sm border-t pt-4">
           <div className="flex items-center gap-2">
-            <label className="text-gray-600 text-xs">Descuento global $</label>
-            <input type="number" min="0" value={descuentoGlobal} onChange={e => setDescuentoGlobal(e.target.value)} placeholder="0"
+            <label className="text-gray-600 text-xs">Descuento global %</label>
+            <input type="number" min="0" max="100" value={descuentoGlobal} onChange={e => setDescuentoGlobal(e.target.value)} placeholder="0"
               className="w-28 px-2 py-1.5 border border-gray-200 rounded text-sm text-right focus:outline-none focus:ring-1 focus:ring-blue-500" />
           </div>
           <div className="flex items-center gap-2">

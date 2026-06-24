@@ -84,10 +84,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
   })
 
-  const dto = Number(descuentoGlobal) || 0
-  const iva = Number(ivaPct)
-  const subOrig = sumRepOrig + sumMO - dto
+  const dtoP = Number(descuentoGlobal) || 0   // porcentaje
+  const iva  = Number(ivaPct)
+  const netoOrig = sumRepOrig + sumMO
+  const netoAlt  = sumRepAlt  + sumMO
+  const netoOtro = sumRepOtro + sumMO
+  const dtoAmtOrig = Math.round(netoOrig * dtoP / 100)
+  const dtoAmtAlt  = Math.round(netoAlt  * dtoP / 100)
+  const dtoAmtOtro = Math.round(netoOtro * dtoP / 100)
+  const subOrig = netoOrig - dtoAmtOrig
   const ivaOrig = Math.round(subOrig * iva / 100)
+  const subAlt  = netoAlt  - dtoAmtAlt
+  const ivaAlt  = Math.round(subAlt  * iva / 100)
+  const subOtro = netoOtro - dtoAmtOtro
+  const ivaOtro = Math.round(subOtro * iva / 100)
 
   const budgetUpdate: any = {
     vehicle_patente: vehiculo.patente?.toUpperCase(),
@@ -105,14 +115,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     notas_cotizacion: notasCotizacion || null,
     total_repuestos: sumRepOrig,
     total_mano_obra: sumMO,
-    gran_total: sumRepOrig + sumMO,
-    descuento_global: dto,
+    gran_total: netoOrig,
+    descuento_global: dtoP,
     subtotal: subOrig,
     iva_pct: iva,
     iva_monto: ivaOrig,
     total: subOrig + ivaOrig,
-    total_alternativo: sumRepAlt + sumMO - dto + Math.round((sumRepAlt + sumMO - dto) * iva / 100),
-    total_otro: sumRepOtro + sumMO - dto + Math.round((sumRepOtro + sumMO - dto) * iva / 100),
+    total_alternativo: subAlt + ivaAlt,
+    total_otro: subOtro + ivaOtro,
+    gran_total_alternativo: netoAlt,
+    gran_total_otro: netoOtro,
     inspection_id: inspectionId || null,
   }
 
