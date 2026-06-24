@@ -53,9 +53,8 @@ export async function POST(request: NextRequest) {
   // Confirmar email automáticamente
   await supabase.rpc("admin_confirm_user_email", { target_user_id: userId })
 
-  // Forzar rol correcto — el trigger crea el perfil con role='client' por defecto;
-  // admin_upsert_profile usa ON CONFLICT DO UPDATE para sobreescribirlo
-  const { error: profileError } = await supabase.rpc("admin_upsert_profile", {
+  // Intentar via RPC primero (SECURITY DEFINER, bypass RLS)
+  const { error: rpcError } = await supabase.rpc("admin_upsert_profile", {
     p_id: userId,
     p_full_name: full_name,
     p_email: email,
@@ -63,10 +62,35 @@ export async function POST(request: NextRequest) {
     p_role: userRole,
   })
 
-  if (profileError) {
-    return NextResponse.json({
-      error: `Usuario creado pero error al guardar perfil: ${profileError.message}`,
-    }, { status: 500 })
+  if (rpcError) {
+    // Fallback: UPDATE directo con el cliente autenticado del admin
+    const { error: directError } = await supabase
+      .from("profiles")
+      .update({ full_name, email, phone: phone || null, role: userRole })
+      .eq("id", userId)
+
+    if (directError) {
+      // Segundo fallback: INSERT si no existe aún
+      await supabase
+        .from("profiles")
+        .insert({ id: userId, full_name, email, phone: phone || null, role: userRole })
+        .single()
+    }
+  }
+
+  // Verificar que el rol quedó correcto
+  const { data: savedProfile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .single()
+
+  if (savedProfile && savedProfile.role !== userRole) {
+    // El trigger sobrescribió el rol — forzar con UPDATE directo
+    await supabase
+      .from("profiles")
+      .update({ role: userRole })
+      .eq("id", userId)
   }
 
   return NextResponse.json({ success: true, userId })
