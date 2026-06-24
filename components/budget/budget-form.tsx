@@ -111,6 +111,7 @@ export default function BudgetForm({ clients, inspections, settings, initialBudg
       formaPago: b.forma_pago ?? "Efectivo o Transferencia",
       vigenciaDias: b.vigencia_dias ? String(b.vigencia_dias) : "30",
       descripcionServicio: b.descripcion_servicio ?? "",
+      notasCotizacion: b.notas_cotizacion ?? "",
     }
   }
 
@@ -130,6 +131,7 @@ export default function BudgetForm({ clients, inspections, settings, initialBudg
   const [formaPago, setFormaPago] = useState(init?.formaPago ?? "Efectivo o Transferencia")
   const [vigenciaDias, setVigenciaDias] = useState(init?.vigenciaDias ?? "30")
   const [descripcionServicio, setDescripcionServicio] = useState(init?.descripcionServicio ?? "")
+  const [notasCotizacion, setNotasCotizacion] = useState(init?.notasCotizacion ?? "")
 
   useEffect(() => {
     if (!inspectionId) return
@@ -220,7 +222,7 @@ export default function BudgetForm({ clients, inspections, settings, initialBudg
         clienteLibre: clientMode === "libre" ? clienteLibre : null,
         vehiculo, inspectionId: inspectionId || null,
         items: activeItems, ivaPct, descuentoGlobal: dto,
-        formaPago, vigenciaDias: Number(vigenciaDias), descripcionServicio,
+        formaPago, vigenciaDias: Number(vigenciaDias), descripcionServicio, notasCotizacion,
       }
       if (mode === "edit" && initialBudget?.id) {
         const res = await fetch(`/api/budgets/${initialBudget.id}`, {
@@ -525,6 +527,15 @@ export default function BudgetForm({ clients, inspections, settings, initialBudg
         <h3 className="font-semibold text-gray-800 mb-2">Descripción general del servicio</h3>
         <textarea value={descripcionServicio} onChange={e => setDescripcionServicio(e.target.value)} rows={4}
           placeholder="Describe los trabajos a realizar, recomendaciones adicionales..."
+          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+      </div>
+
+      {/* NOTAS ADICIONALES */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h3 className="font-semibold text-gray-800 mb-1">Notas / información adicional</h3>
+        <p className="text-xs text-gray-400 mb-2">Aparece al final del PDF, después de los datos de pago. Ej: instrucciones al aceptar, contacto, condiciones.</p>
+        <textarea value={notasCotizacion} onChange={e => setNotasCotizacion(e.target.value)} rows={3}
+          placeholder="Ej: Si la cotización es aceptada, favor enviar correo a hugo@empresa.cl para coordinar..."
           className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
       </div>
 

@@ -53,7 +53,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (existing.status === "accepted") return NextResponse.json({ error: "No se puede editar un presupuesto aceptado" }, { status: 400 })
 
   const body = await req.json()
-  const { clientId, clienteLibre, vehiculo, inspectionId, items, ivaPct = 19, descuentoGlobal = 0, formaPago, vigenciaDias = 30, descripcionServicio } = body
+  const { clientId, clienteLibre, vehiculo, inspectionId, items, ivaPct = 19, descuentoGlobal = 0, formaPago, vigenciaDias = 30, descripcionServicio, notasCotizacion } = body
 
   if (!items?.length) return NextResponse.json({ error: "Sin ítems" }, { status: 400 })
   if (!vehiculo?.patente) return NextResponse.json({ error: "Ingresa la patente" }, { status: 400 })
@@ -102,6 +102,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     forma_pago: formaPago || "Efectivo o Transferencia",
     vigencia_dias: vigenciaDias,
     descripcion_servicio: descripcionServicio || null,
+    notas_cotizacion: notasCotizacion || null,
     total_repuestos: sumRepOrig,
     total_mano_obra: sumMO,
     gran_total: sumRepOrig + sumMO,

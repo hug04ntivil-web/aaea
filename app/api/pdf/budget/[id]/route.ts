@@ -297,9 +297,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const FTR_H_B  = 16
     // Opciones compactas: descuento? + neto + IVA
     const BOX_H    = HDR_H_B + 3 + (dto > 0 ? 3 : 2) * 8 + FTR_H_B
-    // RESUMEN TOTAL: 3 rep fijos + alt? + otro? + MO + separador + dto? + neto + IVA
-    const grandRows = 3 + (hasAlt ? 1 : 0) + (hasOtro ? 1 : 0) + (dto > 0 ? 1 : 0)
-    const GRAND_H  = HDR_H_B + 3 + grandRows * 8 + 4 + FTR_H_B + 2
+    // RESUMEN TOTAL: total rep + MO + sep + dto? + neto + IVA
+    const grandRows = 2 + (dto > 0 ? 1 : 0)   // total rep + MO + dto? + neto + IVA = 4-5 rows
+    const GRAND_H  = HDR_H_B + 3 + (grandRows + 2) * 8 + 4 + FTR_H_B + 2
 
     // Opciones compactas
     boxes.forEach((box, idx) => {
@@ -346,34 +346,34 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const gCW  = GRAND_W - 10
     const gL   = GRAND_W * 0.52
 
-    // Desglose de repuestos
+    // Total repuestos (suma de los 3 tipos)
     doc.fillColor("#374151").fontSize(5.5).font("Helvetica")
-    doc.text("Repuestos originales:",  grandX + 5, gY, { width: gL })
-    doc.fillColor("#1d4ed8").font("Helvetica-Bold").text(`$${fmt(tOrig.sumR)}`, grandX + 5, gY, { width: gCW, align: "right" }); gY += 8
+      .text("Total repuestos:", grandX + 5, gY, { width: gL })
+    doc.fillColor("#1d4ed8").font("Helvetica-Bold")
+      .text(`$${fmt(sumRepAll)}`, grandX + 5, gY, { width: gCW, align: "right" }); gY += 8
 
-    if (hasAlt) {
-      doc.fillColor("#374151").font("Helvetica").text("Repuestos alternativos:", grandX + 5, gY, { width: gL })
-      doc.fillColor("#b45309").font("Helvetica-Bold").text(`$${fmt(tAlt.sumR)}`, grandX + 5, gY, { width: gCW, align: "right" }); gY += 8
-    }
-    if (hasOtro) {
-      doc.fillColor("#374151").font("Helvetica").text("Repuestos otro:",         grandX + 5, gY, { width: gL })
-      doc.fillColor("#15803d").font("Helvetica-Bold").text(`$${fmt(tOtro.sumR)}`, grandX + 5, gY, { width: gCW, align: "right" }); gY += 8
-    }
-
-    doc.fillColor("#374151").font("Helvetica").text("Mano de obra:",             grandX + 5, gY, { width: gL })
-    doc.fillColor("#374151").font("Helvetica-Bold").text(`$${fmt(tOrig.sumMO)}`, grandX + 5, gY, { width: gCW, align: "right" }); gY += 8
+    doc.fillColor("#374151").font("Helvetica")
+      .text("Mano de obra:", grandX + 5, gY, { width: gL })
+    doc.fillColor("#374151").font("Helvetica-Bold")
+      .text(`$${fmt(tOrig.sumMO)}`, grandX + 5, gY, { width: gCW, align: "right" }); gY += 8
 
     // Separador
     doc.moveTo(grandX + 5, gY).lineTo(grandX + GRAND_W - 5, gY).strokeColor("#bfdbfe").lineWidth(0.5).stroke(); gY += 4
 
     if (dto > 0) {
-      doc.fillColor("#374151").fontSize(5.5).font("Helvetica").text("Descuento global:", grandX + 5, gY, { width: gL })
-      doc.fillColor("#dc2626").font("Helvetica-Bold").text(`-$${fmt(dto)}`, grandX + 5, gY, { width: gCW, align: "right" }); gY += 8
+      doc.fillColor("#374151").font("Helvetica")
+        .text(`Descuento (${budget.descuento_global}):`, grandX + 5, gY, { width: gL })
+      doc.fillColor("#dc2626").font("Helvetica-Bold")
+        .text(`-$${fmt(dto)}`, grandX + 5, gY, { width: gCW, align: "right" }); gY += 8
     }
-    doc.fillColor("#374151").font("Helvetica").text("Subtotal neto:",             grandX + 5, gY, { width: gL })
-    doc.fillColor("#1e3a5f").font("Helvetica-Bold").text(`$${fmt(subAll)}`, grandX + 5, gY, { width: gCW, align: "right" }); gY += 8
-    doc.fillColor("#374151").font("Helvetica").text(`IVA (${iva}%):`,             grandX + 5, gY, { width: gL })
-    doc.fillColor("#374151").font("Helvetica-Bold").text(`$${fmt(ivaAll)}`, grandX + 5, gY, { width: gCW, align: "right" })
+    doc.fillColor("#374151").font("Helvetica")
+      .text("Subtotal neto:", grandX + 5, gY, { width: gL })
+    doc.fillColor("#1e3a5f").font("Helvetica-Bold")
+      .text(`$${fmt(subAll)}`, grandX + 5, gY, { width: gCW, align: "right" }); gY += 8
+    doc.fillColor("#374151").font("Helvetica")
+      .text(`IVA (${iva}%):`, grandX + 5, gY, { width: gL })
+    doc.fillColor("#374151").font("Helvetica-Bold")
+      .text(`$${fmt(ivaAll)}`, grandX + 5, gY, { width: gCW, align: "right" })
 
     // Footer total a pagar
     const gFY = y + GRAND_H - FTR_H_B
@@ -423,6 +423,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           .text("TRANSFERIR A: " + payInfo, LX + 4, y, { width: PAGE_W - 8, lineGap: 1.5 })
         y += doc.heightOfString("TRANSFERIR A: " + payInfo, { width: PAGE_W - 8 }) + 10
       }
+    }
+
+    // ── NOTAS DE COTIZACIÓN ────────────────────────────────────────────────
+    if (budget.notas_cotizacion) {
+      if (y > 540) { doc.addPage(); y = MARGIN }
+      doc.rect(LX, y, PAGE_W, 13).fill("#f0fdf4")
+      doc.rect(LX, y, PAGE_W, 13).stroke("#a7f3d0").lineWidth(0.5)
+      doc.fillColor("#15803d").fontSize(6.5).font("Helvetica-Bold")
+        .text("NOTAS / INFORMACIÓN ADICIONAL", LX + 4, y + 3.5)
+      y += 15
+      doc.fillColor("#374151").fontSize(7).font("Helvetica")
+        .text(budget.notas_cotizacion, LX + 4, y, { width: PAGE_W - 8, lineGap: 2.5 })
+      y += doc.heightOfString(budget.notas_cotizacion, { width: PAGE_W - 8, lineGap: 2.5 }) + 14
     }
 
     // ── PIE / FIRMA ────────────────────────────────────────────────────────

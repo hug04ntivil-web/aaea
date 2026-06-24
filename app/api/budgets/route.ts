@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
     formaPago,
     vigenciaDias = 30,
     descripcionServicio,
+    notasCotizacion,
   } = body
 
   if (!items?.length) return NextResponse.json({ error: "Sin ítems en el presupuesto" }, { status: 400 })
@@ -90,6 +91,7 @@ export async function POST(request: NextRequest) {
       forma_pago: formaPago || "Efectivo o Transferencia",
       vigencia_dias: vigenciaDias,
       descripcion_servicio: descripcionServicio || null,
+      notas_cotizacion: notasCotizacion || null,
       // Vehículo
       vehicle_patente:   vehiculo.patente?.toUpperCase(),
       vehicle_marca:     vehiculo.marca    || null,
