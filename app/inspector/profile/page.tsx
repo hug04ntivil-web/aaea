@@ -15,6 +15,7 @@ export default function InspectorProfilePage() {
   const [userName, setUserName] = useState("")
   const [fullName, setFullName] = useState("")
   const [phone, setPhone] = useState("")
+  const [professionalTitle, setProfessionalTitle] = useState("")
   const [email, setEmail] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -31,6 +32,7 @@ export default function InspectorProfilePage() {
       if (data.profile) {
         setFullName(data.profile.full_name ?? "")
         setPhone(data.profile.phone ?? "")
+        setProfessionalTitle(data.profile.professional_title ?? "")
         setRole(data.profile.role ?? "inspector")
         setUserName(data.profile.full_name ?? "")
       }
@@ -45,7 +47,7 @@ export default function InspectorProfilePage() {
       const res = await fetch("/api/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ full_name: fullName, phone }),
+        body: JSON.stringify({ full_name: fullName, phone, professional_title: professionalTitle }),
       })
       if (res.ok) { toast.success("Perfil actualizado"); setUserName(fullName) }
       else { const d = await res.json(); toast.error(d.error ?? "Error al guardar") }
@@ -90,6 +92,17 @@ export default function InspectorProfilePage() {
               onChange={e => setFullName(e.target.value)}
               className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Especialidad / Cargo</label>
+            <input
+              type="text"
+              value={professionalTitle}
+              onChange={e => setProfessionalTitle(e.target.value)}
+              placeholder="Ej: Mecánico automotriz, Técnico, Inspector..."
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-gray-400 mt-1">Aparece en el PDF de presupuestos junto a tu nombre y firma.</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
