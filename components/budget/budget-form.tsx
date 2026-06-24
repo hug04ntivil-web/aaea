@@ -158,22 +158,45 @@ export default function BudgetForm({ clients, inspections, settings, initialBudg
     if (!patente) return
     setBuscandoVehiculo(true)
     try {
+      // 1. Buscar en Supabase (vehículos ya registrados)
       const res = await fetch(`/api/vehicles?patente=${patente}`)
-      const { vehicle, source } = await res.json()
-      if (vehicle) {
+      const { vehicle: local } = await res.json()
+
+      if (local) {
         setVehiculo({
-          patente:   vehicle.patente   ?? patente,
-          marca:     vehicle.marca     ?? "",
-          modelo:    vehicle.modelo    ?? "",
-          anio:      vehicle.anio != null ? String(vehicle.anio) : "",
-          version:   vehicle.version   ?? "",
-          vin:       vehicle.vin       ?? "",
-          num_motor: vehicle.num_motor ?? "",
-          color:     vehicle.color     ?? "",
+          patente:   local.patente   ?? patente,
+          marca:     local.marca     ?? "",
+          modelo:    local.modelo    ?? "",
+          anio:      local.anio != null ? String(local.anio) : "",
+          version:   local.version   ?? "",
+          vin:       local.vin       ?? "",
+          num_motor: local.num_motor ?? "",
+          color:     local.color     ?? "",
           km:        "",
         })
         setShowVehicleManual(true)
-        toast.success(source === "boostr" ? "Vehículo encontrado en Boostr" : "Vehículo encontrado")
+        toast.success("Vehículo encontrado en el sistema")
+        return
+      }
+
+      // 2. Llamar a Boostr directamente desde el browser
+      const { fetchBoostrPlate } = await import("@/lib/boostr")
+      const boostr = await fetchBoostrPlate(patente)
+
+      if (boostr) {
+        setVehiculo({
+          patente:   boostr.patente,
+          marca:     boostr.marca,
+          modelo:    boostr.modelo,
+          anio:      boostr.anio != null ? String(boostr.anio) : "",
+          version:   boostr.version,
+          vin:       boostr.vin,
+          num_motor: boostr.num_motor,
+          color:     boostr.color,
+          km:        "",
+        })
+        setShowVehicleManual(true)
+        toast.success("Vehículo encontrado en Boostr")
       } else {
         setVehiculo({ ...emptyVehiculo(), patente })
         setShowVehicleManual(true)

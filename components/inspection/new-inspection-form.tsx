@@ -156,35 +156,60 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
     const ppu = patente.trim().toUpperCase()
     setVehicle(v => ({ ...v, patente: ppu }))
     try {
+      // 1. Buscar en Supabase
       const res = await fetch(`/api/vehicles?patente=${ppu}`)
-      const { vehicle, source } = await res.json()
-      if (vehicle) {
+      const { vehicle: local } = await res.json()
+
+      if (local) {
         setVehicle(v => ({
           ...v,
-          patente:      vehicle.patente    ?? ppu,
-          marca:        vehicle.marca      ?? "",
-          modelo:       vehicle.modelo     ?? "",
-          anio:         vehicle.anio != null ? String(vehicle.anio) : "",
-          color:        vehicle.color      ?? "",
-          combustible:  vehicle.combustible  || v.combustible,
-          transmision:  vehicle.transmision  || v.transmision,
-          traccion:     vehicle.traccion    || v.traccion,
-          cilindrada:   vehicle.cilindrada  ?? "",
-          tapiceria:    vehicle.tapiceria   ?? "",
-          num_puertas:  vehicle.num_puertas ? String(vehicle.num_puertas) : v.num_puertas,
-          tipo_vehiculo: vehicle.tipo_vehiculo || v.tipo_vehiculo,
-          vin:          vehicle.vin         ?? "",
-          num_motor:    vehicle.num_motor   ?? "",
-          // documentación legal solo si viene de registro local
-          soap_estado:           source === "local" ? (vehicle.soap_estado ?? "") : v.soap_estado,
-          soap_vencimiento:      source === "local" ? (vehicle.soap_vencimiento ?? "") : v.soap_vencimiento,
-          rev_tecnica_estado:    source === "local" ? (vehicle.rev_tecnica_estado ?? "") : v.rev_tecnica_estado,
-          rev_tecnica_vencimiento: source === "local" ? (vehicle.rev_tecnica_vencimiento ?? "") : v.rev_tecnica_vencimiento,
-          permiso_circulacion:   source === "local" ? (vehicle.permiso_circulacion ?? "") : v.permiso_circulacion,
-          emision_contaminantes: source === "local" ? (vehicle.emision_contaminantes ?? "") : v.emision_contaminantes,
-          multas:                source === "local" ? (vehicle.multas ?? "$0") : v.multas,
+          patente:               local.patente    ?? ppu,
+          marca:                 local.marca      ?? "",
+          modelo:                local.modelo     ?? "",
+          anio:                  local.anio != null ? String(local.anio) : "",
+          color:                 local.color      ?? "",
+          combustible:           local.combustible  || v.combustible,
+          transmision:           local.transmision  || v.transmision,
+          traccion:              local.traccion    || v.traccion,
+          cilindrada:            local.cilindrada  ?? "",
+          tapiceria:             local.tapiceria   ?? "",
+          num_puertas:           local.num_puertas ? String(local.num_puertas) : v.num_puertas,
+          tipo_vehiculo:         local.tipo_vehiculo || v.tipo_vehiculo,
+          vin:                   local.vin         ?? "",
+          num_motor:             local.num_motor   ?? "",
+          soap_estado:           local.soap_estado ?? "",
+          soap_vencimiento:      local.soap_vencimiento ?? "",
+          rev_tecnica_estado:    local.rev_tecnica_estado ?? "",
+          rev_tecnica_vencimiento: local.rev_tecnica_vencimiento ?? "",
+          permiso_circulacion:   local.permiso_circulacion ?? "",
+          emision_contaminantes: local.emision_contaminantes ?? "",
+          multas:                local.multas ?? "$0",
         }))
-        toast.success(source === "boostr" ? `Vehículo encontrado en Boostr` : "Vehículo encontrado en el sistema")
+        toast.success("Vehículo encontrado en el sistema")
+        return
+      }
+
+      // 2. Llamar a Boostr desde el browser (evita bloqueo CF en servidores)
+      const { fetchBoostrPlate } = await import("@/lib/boostr")
+      const boostr = await fetchBoostrPlate(ppu)
+
+      if (boostr) {
+        setVehicle(v => ({
+          ...v,
+          patente:       boostr.patente,
+          marca:         boostr.marca,
+          modelo:        boostr.modelo,
+          anio:          boostr.anio != null ? String(boostr.anio) : "",
+          color:         boostr.color,
+          combustible:   boostr.combustible  || v.combustible,
+          transmision:   boostr.transmision  || v.transmision,
+          cilindrada:    boostr.cilindrada   ?? "",
+          num_puertas:   boostr.num_puertas  || v.num_puertas,
+          tipo_vehiculo: boostr.tipo_vehiculo || v.tipo_vehiculo,
+          vin:           boostr.vin,
+          num_motor:     boostr.num_motor,
+        }))
+        toast.success("Vehículo encontrado en Boostr")
       } else {
         setVehicle(v => ({ ...v, patente: ppu }))
         toast.info("Patente no encontrada — completa los datos manualmente")
