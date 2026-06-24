@@ -191,7 +191,7 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
 
       // 2. Llamar a Boostr desde el browser (evita bloqueo CF en servidores)
       const { fetchBoostrPlate } = await import("@/lib/boostr")
-      const boostr = await fetchBoostrPlate(ppu)
+      const { vehicle: boostr, error: boostrError } = await fetchBoostrPlate(ppu)
 
       if (boostr) {
         setVehicle(v => ({
@@ -212,7 +212,8 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
         toast.success("Vehículo encontrado en Boostr")
       } else {
         setVehicle(v => ({ ...v, patente: ppu }))
-        toast.info("Patente no encontrada — completa los datos manualmente")
+        if (boostrError) toast.error(`Boostr: ${boostrError}`)
+        else toast.info("Patente no encontrada — completa los datos manualmente")
       }
     } catch {
       toast.error("Error al buscar patente")

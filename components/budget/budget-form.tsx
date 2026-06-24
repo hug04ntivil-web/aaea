@@ -181,7 +181,7 @@ export default function BudgetForm({ clients, inspections, settings, initialBudg
 
       // 2. Llamar a Boostr directamente desde el browser
       const { fetchBoostrPlate } = await import("@/lib/boostr")
-      const boostr = await fetchBoostrPlate(patente)
+      const { vehicle: boostr, error: boostrError } = await fetchBoostrPlate(patente)
 
       if (boostr) {
         setVehiculo({
@@ -200,7 +200,8 @@ export default function BudgetForm({ clients, inspections, settings, initialBudg
       } else {
         setVehiculo({ ...emptyVehiculo(), patente })
         setShowVehicleManual(true)
-        toast.info("No encontrado — ingresa los datos manualmente")
+        if (boostrError) toast.error(`Boostr: ${boostrError}`)
+        else toast.info("No encontrado — ingresa los datos manualmente")
       }
     } catch { toast.error("Error al buscar") }
     finally { setBuscandoVehiculo(false) }
