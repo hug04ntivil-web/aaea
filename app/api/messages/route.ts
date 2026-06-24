@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function GET() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
 
-  const admin = createAdminClient()
-  const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single()
+  const { data: profile } = await supabase
+    .from("profiles").select("role").eq("id", user.id).single()
 
-  let query = admin
+  let query = supabase
     .from("messages")
     .select(`id, body, created_at, sender_id, profiles!messages_sender_id_fkey(full_name, role)`)
     .order("created_at", { ascending: true })
@@ -30,8 +29,8 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
 
-  const admin = createAdminClient()
-  const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single()
+  const { data: profile } = await supabase
+    .from("profiles").select("role").eq("id", user.id).single()
   const body = await request.json()
   const { message, clientId } = body
 
@@ -39,7 +38,7 @@ export async function POST(request: NextRequest) {
 
   const targetClientId = profile?.role === "client" ? user.id : clientId
 
-  const { error } = await admin.from("messages").insert({
+  const { error } = await supabase.from("messages").insert({
     sender_id: user.id,
     client_id: targetClientId,
     body: message.trim(),
