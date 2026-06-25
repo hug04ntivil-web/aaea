@@ -12,10 +12,21 @@ import VehicleCombobox from "@/components/ui/vehicle-combobox"
 
 interface Client { id: string; full_name: string; email: string; phone: string }
 
+interface InitialData {
+  vehicle: Record<string, string>
+  clientId?: string
+  isNewClient?: boolean
+  newClient?: Record<string, string>
+  items: Record<string, { estado: string; observaciones: string }>
+  comentarios?: string
+}
+
 interface Props {
   inspectorId: string
   inspectorName: string
   clients: Client[]
+  editId?: string
+  initialData?: InitialData
 }
 
 type Step = "vehicle" | "client" | "visual" | "carroceria" | "mecanica"
@@ -105,14 +116,20 @@ function StickyProgress({ pct, score }: { pct: number; score: number }) {
   )
 }
 
-export default function NewInspectionForm({ inspectorId, inspectorName, clients }: Props) {
+export default function NewInspectionForm({ inspectorId, inspectorName, clients, editId, initialData }: Props) {
   const router = useRouter()
   const [step, setStep] = useState<Step>("vehicle")
   const [savingAs, setSavingAs] = useState<"" | "draft" | "complete">("")
   const [aiLoading, setAiLoading] = useState(false)
   const [searching, setSearching] = useState(false)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const [vehicleSearched, setVehicleSearched] = useState(false)
   const topRef = useRef<HTMLDivElement>(null)
+
+  // Helper: borde amarillo si campo vacío después de auto-fill
+  function emptyFieldCls(val: string, extra = "") {
+    return `${vehicleSearched && !val ? "border-yellow-400 bg-yellow-50 focus:ring-yellow-400" : "border-gray-200"} ${extra}`
+  }
 
   // Vehicle data
   const [patente, setPatente] = useState("")
@@ -123,6 +140,20 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
     soap_estado: "", soap_vencimiento: "", rev_tecnica_estado: "", rev_tecnica_vencimiento: "",
     permiso_circulacion: "", emision_contaminantes: "", multas: "$0", kilometraje: "",
   })
+
+  // Pre-cargar datos si venimos de editar un borrador
+  useEffect(() => {
+    if (!initialData) return
+    if (initialData.vehicle) {
+      setVehicle(v => ({ ...v, ...initialData.vehicle }))
+      setPatente(initialData.vehicle.patente ?? "")
+    }
+    if (initialData.items) setItems(initialData.items)
+    if (initialData.comentarios) setComentarios(initialData.comentarios)
+    if (initialData.clientId) setSelectedClientId(initialData.clientId)
+    if (initialData.isNewClient) setIsNewClient(true)
+    if (initialData.newClient) setNewClient(nc => ({ ...nc, ...initialData.newClient }))
+  }, [])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Client data
   const [selectedClientId, setSelectedClientId] = useState("")
@@ -193,6 +224,7 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
       const { vehicle, source, error } = await res.json()
 
       if (vehicle) {
+        setVehicleSearched(true)
         setVehicle(v => ({
           ...v,
           patente:               vehicle.patente    ?? ppu,
@@ -223,6 +255,7 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
       }
 
       setVehicle(v => ({ ...v, patente: ppu }))
+      setVehicleSearched(true)
       if (error) toast.error(`No encontrado: ${error}`)
       else toast.info("Patente no encontrada — completa los datos manualmente")
     } catch {
@@ -347,8 +380,13 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
         }
       }
 
-      const res = await fetch("/api/inspections", {
-        method: "POST",
+      const endpoint = editId
+        ? `/api/inspector/inspections/${editId}`
+        : "/api/inspections"
+      const method = editId ? "PATCH" : "POST"
+
+      const res = await fetch(endpoint, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           vehicle,
@@ -368,7 +406,7 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "Error al guardar")
       toast.success(status === "draft" ? "Borrador guardado" : "Inspección completada")
-      router.push(`/inspector/inspections/${data.inspectionId}`)
+      router.push(`/inspector/inspections/${data.inspectionId ?? editId}`)
     } catch (err: any) {
       toast.error(err.message ?? "Error al guardar la inspección")
     } finally {
@@ -466,6 +504,13 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
             </button>
           </div>
 
+          {vehicleSearched && (
+            <div className="flex items-center gap-2 text-xs text-yellow-700 bg-yellow-50 border border-yellow-300 rounded-lg px-3 py-2 mb-3">
+              <span className="text-yellow-500">⚠</span>
+              Los campos con borde amarillo están vacíos — completa los que estén disponibles.
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             {/* Patente */}
             <div>
@@ -478,22 +523,26 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
             {/* Marca */}
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Marca *</label>
-              <VehicleCombobox
-                value={vehicle.marca}
-                onChange={val => setVehicle(v => ({ ...v, marca: val, modelo: "" }))}
-                options={VEHICLE_MAKES}
-                placeholder="Toyota, Ford..."
-              />
+              <div className={vehicleSearched && !vehicle.marca ? "ring-2 ring-yellow-400 rounded-lg" : ""}>
+                <VehicleCombobox
+                  value={vehicle.marca}
+                  onChange={val => setVehicle(v => ({ ...v, marca: val, modelo: "" }))}
+                  options={VEHICLE_MAKES}
+                  placeholder="Toyota, Ford..."
+                />
+              </div>
             </div>
             {/* Modelo */}
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Modelo *</label>
-              <VehicleCombobox
-                value={vehicle.modelo}
-                onChange={val => setVehicle(v => ({ ...v, modelo: val }))}
-                options={getModels(vehicle.marca)}
-                placeholder={vehicle.marca ? "Seleccionar modelo..." : "Elige marca primero"}
-              />
+              <div className={vehicleSearched && !vehicle.modelo ? "ring-2 ring-yellow-400 rounded-lg" : ""}>
+                <VehicleCombobox
+                  value={vehicle.modelo}
+                  onChange={val => setVehicle(v => ({ ...v, modelo: val }))}
+                  options={getModels(vehicle.marca)}
+                  placeholder={vehicle.marca ? "Seleccionar modelo..." : "Elige marca primero"}
+                />
+              </div>
             </div>
             {/* Año */}
             <div>
@@ -501,17 +550,19 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
               <input type="number" value={vehicle.anio}
                 onChange={e => setVehicle(v => ({ ...v, anio: e.target.value }))}
                 placeholder="2016"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                className={`w-full px-3 py-2 border ${emptyFieldCls(vehicle.anio)} rounded-lg text-sm focus:outline-none focus:ring-2`} />
             </div>
             {/* Color */}
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Color</label>
-              <VehicleCombobox
-                value={vehicle.color}
-                onChange={val => setVehicle(v => ({ ...v, color: val }))}
-                options={VEHICLE_COLORS}
-                placeholder="Blanco, Negro..."
-              />
+              <div className={vehicleSearched && !vehicle.color ? "ring-2 ring-yellow-400 rounded-lg" : ""}>
+                <VehicleCombobox
+                  value={vehicle.color}
+                  onChange={val => setVehicle(v => ({ ...v, color: val }))}
+                  options={VEHICLE_COLORS}
+                  placeholder="Blanco, Negro..."
+                />
+              </div>
             </div>
             {/* Cilindrada */}
             <div>
@@ -519,7 +570,7 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
               <input type="text" value={vehicle.cilindrada}
                 onChange={e => setVehicle(v => ({ ...v, cilindrada: e.target.value }))}
                 placeholder="1.6"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                className={`w-full px-3 py-2 border ${emptyFieldCls(vehicle.cilindrada)} rounded-lg text-sm focus:outline-none focus:ring-2`} />
             </div>
             {/* VIN */}
             <div>
@@ -527,7 +578,7 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
               <input type="text" value={vehicle.vin}
                 onChange={e => setVehicle(v => ({ ...v, vin: e.target.value.toUpperCase() }))}
                 placeholder="3VWBY6AU5FM..."
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase" />
+                className={`w-full px-3 py-2 border ${emptyFieldCls(vehicle.vin)} rounded-lg text-sm focus:outline-none focus:ring-2 uppercase`} />
             </div>
             {/* N° Motor */}
             <div>
@@ -535,7 +586,7 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
               <input type="text" value={vehicle.num_motor}
                 onChange={e => setVehicle(v => ({ ...v, num_motor: e.target.value }))}
                 placeholder="YD25310623T"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                className={`w-full px-3 py-2 border ${emptyFieldCls(vehicle.num_motor)} rounded-lg text-sm focus:outline-none focus:ring-2`} />
             </div>
             {/* Kilometraje */}
             <div>
@@ -543,7 +594,7 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
               <input type="number" value={vehicle.kilometraje}
                 onChange={e => setVehicle(v => ({ ...v, kilometraje: e.target.value }))}
                 placeholder="84245"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                className={`w-full px-3 py-2 border ${emptyFieldCls(vehicle.kilometraje)} rounded-lg text-sm focus:outline-none focus:ring-2`} />
             </div>
             {/* Tapicería */}
             <div>
@@ -551,7 +602,7 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
               <input type="text" value={vehicle.tapiceria}
                 onChange={e => setVehicle(v => ({ ...v, tapiceria: e.target.value }))}
                 placeholder="Tela"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                className={`w-full px-3 py-2 border ${emptyFieldCls(vehicle.tapiceria)} rounded-lg text-sm focus:outline-none focus:ring-2`} />
             </div>
             {/* N° puertas */}
             <div>
@@ -627,7 +678,7 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
                     value={(vehicle as any)[f.key]}
                     onChange={e => setVehicle(v => ({ ...v, [f.key]: e.target.value }))}
                     placeholder={f.placeholder}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border ${emptyFieldCls((vehicle as any)[f.key])} rounded-lg text-xs focus:outline-none focus:ring-2`}
                   />
                 </div>
               ))}

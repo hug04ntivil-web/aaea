@@ -1,8 +1,16 @@
 "use client"
 
 import { useState } from "react"
-import { Sparkles, Loader2, Copy, Check } from "lucide-react"
+import { Sparkles, Loader2, Copy, Check, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
+
+type Style = "compacto" | "estandar" | "detallado"
+
+const STYLES: { key: Style; label: string; desc: string }[] = [
+  { key: "compacto",  label: "Compacto",  desc: "3 oraciones · rápido de leer" },
+  { key: "estandar",  label: "Estándar",  desc: "3 párrafos · ~250 palabras" },
+  { key: "detallado", label: "Detallado", desc: "Informe completo por secciones" },
+]
 
 interface Props {
   inspectionId: string
@@ -11,21 +19,24 @@ interface Props {
 export default function AiSummaryButton({ inspectionId }: Props) {
   const [loading, setLoading] = useState(false)
   const [summary, setSummary] = useState("")
+  const [activeStyle, setActiveStyle] = useState<Style | null>(null)
   const [copied, setCopied] = useState(false)
 
-  async function generate() {
+  async function generate(style: Style) {
     setLoading(true)
+    setActiveStyle(style)
     try {
       const res = await fetch("/api/ai/inspection-summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ inspectionId }),
+        body: JSON.stringify({ inspectionId, style }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "Error desconocido")
       setSummary(data.summary)
     } catch (err: any) {
       toast.error(err.message ?? "Error al generar resumen")
+      setActiveStyle(null)
     } finally {
       setLoading(false)
     }
@@ -38,49 +49,69 @@ export default function AiSummaryButton({ inspectionId }: Props) {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const activeStyleLabel = STYLES.find(s => s.key === activeStyle)?.label ?? ""
+
   return (
     <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] shadow-sm p-5">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold text-[var(--text-1)] flex items-center gap-2">
           <Sparkles size={16} className="text-violet-500" />
-          Resumen IA
+          Resumen con IA
         </h3>
         {summary && (
-          <button onClick={copy} className="flex items-center gap-1.5 text-xs text-[var(--text-2)] hover:text-[var(--text-1)] transition">
-            {copied ? <Check size={13} className="text-green-500" /> : <Copy size={13} />}
-            {copied ? "Copiado" : "Copiar"}
-          </button>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-violet-600 bg-violet-50 dark:bg-violet-900/20 px-2 py-0.5 rounded-full font-medium">
+              {activeStyleLabel}
+            </span>
+            <button onClick={copy} className="flex items-center gap-1.5 text-xs text-[var(--text-2)] hover:text-[var(--text-1)] transition">
+              {copied ? <Check size={13} className="text-green-500" /> : <Copy size={13} />}
+              {copied ? "Copiado" : "Copiar"}
+            </button>
+          </div>
         )}
       </div>
 
-      {!summary ? (
-        <div className="flex flex-col items-start gap-3">
-          <p className="text-sm text-[var(--text-2)]">
-            Genera un resumen profesional en lenguaje natural basado en los ítems inspeccionados.
-          </p>
+      {/* Botones de estilo */}
+      <div className="flex flex-col sm:flex-row gap-2 mb-4">
+        {STYLES.map(s => (
           <button
-            onClick={generate}
+            key={s.key}
+            onClick={() => generate(s.key)}
             disabled={loading}
-            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
+            className={`flex-1 flex flex-col items-center gap-0.5 px-3 py-2.5 rounded-xl text-sm font-medium border transition disabled:opacity-60 ${
+              activeStyle === s.key && summary
+                ? "bg-violet-600 text-white border-violet-600 shadow-sm"
+                : "bg-white dark:bg-slate-800 text-[var(--text-1)] border-[var(--border)] hover:border-violet-400 hover:text-violet-600"
+            }`}
           >
-            {loading
-              ? <><Loader2 size={15} className="animate-spin" /> Generando...</>
-              : <><Sparkles size={15} /> Generar resumen con IA</>
+            {loading && activeStyle === s.key
+              ? <Loader2 size={14} className="animate-spin" />
+              : <Sparkles size={14} />
             }
+            <span>{loading && activeStyle === s.key ? "Generando..." : s.label}</span>
+            <span className={`text-xs font-normal ${activeStyle === s.key && summary ? "text-violet-200" : "text-[var(--text-3)]"}`}>
+              {s.desc}
+            </span>
           </button>
-        </div>
-      ) : (
+        ))}
+      </div>
+
+      {/* Resultado */}
+      {summary && !loading && (
         <div className="space-y-3">
-          <p className="text-sm text-[var(--text-2)] leading-relaxed whitespace-pre-wrap">{summary}</p>
-          <button
-            onClick={generate}
-            disabled={loading}
-            className="flex items-center gap-1.5 text-xs text-violet-600 hover:text-violet-700 disabled:opacity-60 transition"
-          >
-            {loading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-            {loading ? "Regenerando..." : "Regenerar"}
-          </button>
+          <div className="bg-[var(--bg-subtle)] rounded-lg p-4 border border-[var(--border)]">
+            <p className="text-sm text-[var(--text-2)] leading-relaxed whitespace-pre-wrap">{summary}</p>
+          </div>
+          <p className="text-xs text-[var(--text-3)] text-center">
+            Haz clic en otro estilo para generar una versión diferente
+          </p>
         </div>
+      )}
+
+      {!summary && !loading && (
+        <p className="text-sm text-[var(--text-3)] text-center">
+          Selecciona un formato para generar el resumen
+        </p>
       )}
     </div>
   )
