@@ -36,15 +36,15 @@ function fmtDate(d: string) {
 }
 
 function estadoColor(e: string) {
-  if (["Bueno","Sin Daño","Normal","Funciona","A nivel","No Presenta","No Encendido"].includes(e)) return C.good
+  if (["Bueno","Sin Daño","Normal","Funciona","A nivel","No Presenta","No Encendido","Presenta"].includes(e)) return C.good
   if (["Con Daño","Regular"].includes(e)) return C.warn
-  if (["Malo","Anormal","No Funciona","Bajo nivel","Encendido","Presenta"].includes(e)) return C.bad
+  if (["Malo","Anormal","No Funciona","Bajo nivel","Encendido"].includes(e)) return C.bad
   return "#94a3b8"
 }
 function isBad(e: string) {
-  return ["Con Daño","Malo","Anormal","No Funciona","Bajo nivel","Presenta","Encendido"].includes(e)
+  return ["Con Daño","Malo","Anormal","No Funciona","Bajo nivel","Encendido"].includes(e)
 }
-function isWarn(e: string) { return e === "Regular" }
+function isWarn(e: string) { return ["Regular", "Con Daño"].includes(e) }
 
 // ─── Cálculo de zonas ─────────────────────────────────────────────────────────
 const ZONE_MAP: Record<string, string> = {
