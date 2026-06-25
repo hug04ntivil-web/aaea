@@ -11,18 +11,23 @@ const MR  = 28    // margin right
 const CW  = PW - ML - MR   // 539
 
 const C = {
-  navy:   "#0f172a",
-  brand:  "#1e3a5f",
-  accent: "#2563eb",
-  good:   "#15803d",
-  warn:   "#b45309",
-  bad:    "#b91c1c",
-  muted:  "#64748b",
-  border: "#cbd5e1",
-  light:  "#f8fafc",
-  mid:    "#e2e8f0",
-  white:  "#ffffff",
-  text:   "#1e293b",
+  navy:    "#0f172a",
+  brand:   "#1e3a5f",
+  accent:  "#2563eb",
+  good:    "#15803d",
+  warn:    "#b45309",
+  bad:     "#b91c1c",
+  muted:   "#64748b",
+  border:  "#cbd5e1",
+  light:   "#f8fafc",
+  mid:     "#e2e8f0",
+  white:   "#ffffff",
+  text:    "#1e293b",
+  // header celeste
+  hdrBg:   "#dbeafe",   // sky-100 claro
+  hdrLine: "#3b82f6",   // blue-500
+  hdrText: "#1e293b",   // casi negro → legible
+  hdrSub:  "#475569",   // slate-600
 }
 
 function fmtDate(d: string) {
@@ -332,13 +337,13 @@ function sectionBar(doc: PDFKit.PDFDocument, label: string, y: number, w = CW): 
 }
 
 function miniHeader(doc: PDFKit.PDFDocument, title: string, sub: string, logoBuf: Buffer | null) {
-  doc.fillColor(C.navy).rect(0, 0, PW, 30).fill()
-  doc.fillColor(C.accent).rect(0, 30, PW, 3).fill()
+  doc.fillColor(C.hdrBg).rect(0, 0, PW, 30).fill()
+  doc.fillColor(C.hdrLine).rect(0, 30, PW, 3).fill()
   if (logoBuf) {
     try { doc.image(logoBuf, ML, 4, { height: 22, fit: [80, 22] }) } catch { }
   }
-  doc.fillColor(C.white).font("Helvetica-Bold").fontSize(9).text(title, 110, 7, { width: 370, align: "center" })
-  doc.fillColor("#94a3b8").font("Helvetica").fontSize(6.5).text(sub, 110, 19, { width: 370, align: "center" })
+  doc.fillColor(C.hdrText).font("Helvetica-Bold").fontSize(9).text(title, 110, 7, { width: 370, align: "center" })
+  doc.fillColor(C.hdrSub).font("Helvetica").fontSize(6.5).text(sub, 110, 19, { width: 370, align: "center" })
 }
 
 function pgFooter(doc: PDFKit.PDFDocument, company: string, pg: number) {
@@ -415,50 +420,50 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // PÁGINA 1 — RESUMEN EJECUTIVO
     // ════════════════════════════════════════════════════════════════════════════
 
-    // ── Header ────────────────────────────────────────────────────────────────
-    doc.fillColor(C.navy).rect(0, 0, PW, 74).fill()
-    // Subtle texture
-    doc.save()
-    doc.fillColor("#ffffff05")
-    for (let xi = -20; xi < PW + 40; xi += 14) {
-      doc.moveTo(xi, 0).lineTo(xi + 74, 74).lineWidth(7).stroke()
-    }
-    doc.restore()
-    doc.fillColor(C.accent).rect(0, 74, PW, 3).fill()
+    // ── Header — fondo celeste claro, texto negro ─────────────────────────────
+    doc.fillColor(C.hdrBg).rect(0, 0, PW, 78).fill()
+    doc.fillColor(C.hdrLine).rect(0, 78, PW, 3).fill()
+    // Thin decorative left bar
+    doc.fillColor(C.accent).rect(0, 0, 4, 78).fill()
 
-    // Logo
+    // Logo (fondo claro, logo visible)
     if (logoBuf) {
-      try { doc.image(logoBuf, ML, 10, { height: 52, fit: [140, 52] }) }
-      catch { doc.fillColor(C.white).font("Helvetica-Bold").fontSize(11).text(company, ML, 16) }
+      try { doc.image(logoBuf, ML + 4, 8, { height: 60, fit: [148, 60] }) }
+      catch { doc.fillColor(C.hdrText).font("Helvetica-Bold").fontSize(12).text(company, ML + 4, 14) }
     } else {
-      doc.fillColor(C.white).font("Helvetica-Bold").fontSize(11).text(company, ML, 14)
+      doc.fillColor(C.hdrText).font("Helvetica-Bold").fontSize(12).text(company, ML + 4, 12)
       const infoY = 28
-      if (compRut)   doc.fillColor("#94a3b8").font("Helvetica").fontSize(7).text(`RUT: ${compRut}`, ML, infoY)
-      if (compPhone) doc.fillColor("#94a3b8").font("Helvetica").fontSize(7).text(`Tel: ${compPhone}`, ML, infoY + 10)
-      if (compEmail) doc.fillColor("#94a3b8").font("Helvetica").fontSize(7).text(compEmail, ML, infoY + 20)
-      if (compAddr)  doc.fillColor("#94a3b8").font("Helvetica").fontSize(6.5).text(compAddr, ML, infoY + 30, { width: 160 })
+      if (compRut)   doc.fillColor(C.hdrSub).font("Helvetica").fontSize(7).text(`RUT: ${compRut}`, ML + 4, infoY)
+      if (compPhone) doc.fillColor(C.hdrSub).font("Helvetica").fontSize(7).text(`Tel: ${compPhone}`, ML + 4, infoY + 10)
+      if (compEmail) doc.fillColor(C.hdrSub).font("Helvetica").fontSize(7).text(compEmail, ML + 4, infoY + 20)
+      if (compAddr)  doc.fillColor(C.hdrSub).font("Helvetica").fontSize(6.5).text(compAddr, ML + 4, infoY + 30, { width: 160 })
     }
 
-    // Title block (center)
-    doc.fillColor(C.white).font("Helvetica-Bold").fontSize(15)
-      .text("INFORME DE INSPECCIÓN VEHICULAR", 168, 10, { width: 264, align: "center" })
-    doc.fillColor("#94a3b8").font("Helvetica").fontSize(8)
-      .text(`Fecha: ${fmtDate(ins.fecha_inspeccion)}`, 168, 30, { width: 264, align: "center" })
-    doc.fillColor("#93c5fd").font("Helvetica-Bold").fontSize(8)
-      .text(`Inspector: ${ins.profiles?.full_name ?? "—"}`, 168, 42, { width: 264, align: "center" })
-    doc.fillColor("#475569").font("Helvetica").fontSize(6.5)
-      .text(`N° ${id.slice(0, 8).toUpperCase()}`, 168, 55, { width: 264, align: "center" })
+    // Title block (centro)
+    doc.fillColor(C.hdrText).font("Helvetica-Bold").fontSize(15)
+      .text("INFORME DE INSPECCIÓN VEHICULAR", 168, 8, { width: 256, align: "center" })
+    // Thin accent rule under title
+    doc.fillColor(C.hdrLine).rect(168 + 20, 28, 216, 1).fill()
+    doc.fillColor(C.hdrSub).font("Helvetica").fontSize(8)
+      .text(`Fecha: ${fmtDate(ins.fecha_inspeccion)}`, 168, 32, { width: 256, align: "center" })
+    doc.fillColor(C.accent).font("Helvetica-Bold").fontSize(8.5)
+      .text(`Inspector: ${ins.profiles?.full_name ?? "—"}`, 168, 44, { width: 256, align: "center" })
+    doc.fillColor(C.hdrSub).font("Helvetica").fontSize(6.5)
+      .text(`N° ${id.slice(0, 8).toUpperCase()}`, 168, 57, { width: 256, align: "center" })
+    doc.fillColor(C.hdrSub).font("Helvetica").fontSize(6)
+      .text(`Patente: ${v.patente ?? "—"}  ·  ${v.marca ?? ""} ${v.modelo ?? ""}`, 168, 67, { width: 256, align: "center" })
 
-    // QR
+    // QR (fondo blanco para que se lea el QR oscuro sobre fondo celeste)
     if (qrBuf) {
       try {
-        doc.image(qrBuf, PW - 78, 3, { width: 62, height: 62 })
-        doc.fillColor("#64748b").font("Helvetica").fontSize(5)
-          .text("Ver online", PW - 78, 66, { width: 62, align: "center" })
+        doc.fillColor(C.white).roundedRect(PW - 82, 4, 72, 72, 4).fill()
+        doc.image(qrBuf, PW - 80, 6, { width: 62, height: 62 })
+        doc.fillColor(C.hdrSub).font("Helvetica").fontSize(5.5)
+          .text("Ver online", PW - 82, 70, { width: 72, align: "center" })
       } catch { }
     }
 
-    let y = 82
+    let y = 86
 
     // ── Datos vehículo ────────────────────────────────────────────────────────
     y = sectionBar(doc, "DATOS DEL VEHÍCULO", y)
@@ -514,8 +519,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     y += 4
 
-    // ── Resultado — score boxes compactos ─────────────────────────────────────
+    // ── Resultado — score boxes centrados, Nota Final diferenciada ────────────
     y = sectionBar(doc, "RESULTADO DE LA INSPECCIÓN", y)
+
+    const SH_BIG = 72   // alto caja nota final
+    const SH_SM  = 56   // alto cajas sub-notas
+    const BW     = 98   // ancho nota final
+    const SW     = 60   // ancho sub-notas
+    const SGAP   = 10
+    // Centrar horizontalmente: total = BW + 3*SW + 3*SGAP
+    const totalScoreW = BW + 3 * SW + 3 * SGAP
+    let sx = ML + Math.round((CW - totalScoreW) / 2)
+    const scoreBaseY = y + 4  // margen superior
 
     const scores = [
       { label: "NOTA FINAL",  nota: ins.nota_final,      big: true  },
@@ -523,44 +538,58 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       { label: "Carrocería",  nota: ins.nota_carroceria, big: false },
       { label: "Mecánica",    nota: ins.nota_mecanica,   big: false },
     ]
-    const SH = 60  // score box height (compacto)
-    const BW2 = 80, SW2 = 66, GAP = 8
-    let sx = ML
 
     scores.forEach(s => {
-      const nota = s.nota ?? 0
-      const bw = s.big ? BW2 : SW2
+      const nota  = s.nota ?? 0
+      const bw    = s.big ? BW : SW
+      const bh    = s.big ? SH_BIG : SH_SM
+      // Para Nota Final: fondo diferenciado siempre con borde oscuro
       const col    = nota >= 6.5 ? "#166534" : nota >= 5 ? "#92400e" : "#991b1b"
-      const colLt  = nota >= 6.5 ? "#dcfce7" : nota >= 5 ? "#fef3c7" : "#fee2e2"
-      const colMid = nota >= 6.5 ? "#4ade80" : nota >= 5 ? "#fbbf24" : "#f87171"
+      const colLt  = nota >= 6.5 ? "#f0fdf4" : nota >= 5 ? "#fffbeb" : "#fff1f2"
+      const colMid = nota >= 6.5 ? "#22c55e" : nota >= 5 ? "#f59e0b" : "#ef4444"
+      // Nota final: banner color del rating más borde grueso
+      const sy = s.big ? scoreBaseY : scoreBaseY + (SH_BIG - SH_SM) / 2  // centrar verticalmente con el grande
 
-      doc.fillColor(colLt).roundedRect(sx, y, bw, SH, 5).fill()
-      doc.strokeColor(col).lineWidth(1.2).roundedRect(sx, y, bw, SH, 5).stroke()
-      // Top stripe
-      doc.fillColor(col).roundedRect(sx, y, bw, 22, 5).fill()
-      doc.fillColor(col).rect(sx, y + 12, bw, 10).fill()
-      // Note
-      doc.fillColor(C.white).font("Helvetica-Bold").fontSize(s.big ? 18 : 15)
-        .text(nota ? nota.toFixed(1) : "—", sx, y + 2, { width: bw, align: "center" })
-      doc.fillColor("#ffffff99").font("Helvetica").fontSize(5.5)
-        .text("/7.0", sx, y + 15, { width: bw, align: "center" })
-      // Pct
-      doc.fillColor(col).font("Helvetica-Bold").fontSize(s.big ? 17 : 13)
-        .text(`${Math.round((nota / 7) * 100)}%`, sx, y + 27, { width: bw, align: "center" })
-      // Progress bar
-      const bx = sx + 7, bbarW = bw - 14
-      doc.fillColor("#0000001a").roundedRect(bx, y + SH - 11, bbarW, 4, 2).fill()
-      doc.fillColor(colMid).roundedRect(bx, y + SH - 11, bbarW * (nota / 7), 4, 2).fill()
-      // Label
-      doc.fillColor(col).font("Helvetica-Bold").fontSize(s.big ? 6.5 : 5.5)
-        .text(s.label, sx, y + SH - 6, { width: bw, align: "center" })
+      if (s.big) {
+        // Caja grande con borde de 2px y estilo destacado
+        doc.fillColor(col).roundedRect(sx - 1, sy - 1, bw + 2, bh + 2, 7).fill()
+        doc.fillColor(colLt).roundedRect(sx + 1, sy + 1, bw - 2, bh - 2, 6).fill()
+      } else {
+        doc.fillColor(colLt).roundedRect(sx, sy, bw, bh, 5).fill()
+        doc.strokeColor(col).lineWidth(0.8).roundedRect(sx, sy, bw, bh, 5).stroke()
+      }
 
-      sx += bw + GAP
+      // Banda superior de color
+      const stripeH = s.big ? 26 : 20
+      doc.fillColor(col).roundedRect(sx, sy, bw, stripeH, s.big ? 6 : 5).fill()
+      doc.fillColor(col).rect(sx, sy + stripeH - 8, bw, 8).fill()
+
+      // Nota (número)
+      doc.fillColor(C.white).font("Helvetica-Bold").fontSize(s.big ? 22 : 16)
+        .text(nota ? nota.toFixed(1) : "—", sx, sy + (s.big ? 2 : 1), { width: bw, align: "center" })
+      doc.fillColor("#ffffff99").font("Helvetica").fontSize(s.big ? 6 : 5.5)
+        .text("/7.0", sx, sy + (s.big ? 18 : 14), { width: bw, align: "center" })
+
+      // Porcentaje
+      doc.fillColor(col).font("Helvetica-Bold").fontSize(s.big ? 19 : 13)
+        .text(`${Math.round((nota / 7) * 100)}%`, sx, sy + stripeH, { width: bw, align: "center" })
+
+      // Barra de progreso
+      const bx = sx + 6, bbarW = bw - 12
+      const barY = sy + bh - (s.big ? 13 : 11)
+      doc.fillColor("#0000001a").roundedRect(bx, barY, bbarW, 4, 2).fill()
+      doc.fillColor(colMid).roundedRect(bx, barY, bbarW * Math.min(nota / 7, 1), 4, 2).fill()
+
+      // Etiqueta
+      doc.fillColor(col).font("Helvetica-Bold").fontSize(s.big ? 7 : 5.5)
+        .text(s.label, sx, sy + bh - (s.big ? 7 : 5), { width: bw, align: "center" })
+
+      sx += bw + SGAP
     })
 
-    y += SH + 6
+    y += SH_BIG + 12
 
-    // ── Ítems con observaciones ───────────────────────────────────────────────
+    // ── Ítems con observaciones (rojo=malo, amarillo=alerta, verde=correcto) ───
     if (defects.length > 0) {
       y = sectionBar(doc, `ÍTEMS CON OBSERVACIONES  (${defects.length})`, y)
       const DMAX = 22
@@ -569,8 +598,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       const defRH = 10
       const defBoxH = Math.ceil(limit / 2) * defRH + 6
 
-      doc.fillColor("#fff7ed").rect(ML, y, CW, defBoxH).fill()
-      doc.strokeColor("#fed7aa").lineWidth(0.5).rect(ML, y, CW, defBoxH).stroke()
+      doc.fillColor("#f8fafc").rect(ML, y, CW, defBoxH).fill()
+      doc.strokeColor(C.border).lineWidth(0.5).rect(ML, y, CW, defBoxH).stroke()
 
       const colDefW = CW / 2 - 10
       for (let i = 0; i < limit; i++) {
@@ -578,12 +607,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         const right = i >= half
         const ix = ML + (right ? CW / 2 + 6 : 5)
         const iy = y + (right ? i - half : i) * defRH + 3
-        const ec = estadoColor(itm.estado)
-        doc.fillColor(ec).circle(ix + 4, iy + 5, 2.5).fill()
+        const ec = estadoColor(itm.estado)  // verde/amarillo/rojo según estado
+        // Punto siempre coloreado
+        doc.fillColor("#ffffff").circle(ix + 5, iy + 5, 3.5).fill()
+        doc.fillColor(ec).circle(ix + 5, iy + 5, 3).fill()
         doc.fillColor(C.text).font("Helvetica").fontSize(6.5)
-          .text(itm.item_label, ix + 10, iy + 1, { width: colDefW - 60 })
+          .text(itm.item_label, ix + 12, iy + 1, { width: colDefW - 62 })
         doc.fillColor(ec).font("Helvetica-Bold").fontSize(6.5)
-          .text(itm.estado, ix + colDefW - 54, iy + 1, { width: 52, align: "right" })
+          .text(itm.estado, ix + colDefW - 52, iy + 1, { width: 52, align: "right" })
       }
       if (defects.length > DMAX) {
         doc.fillColor(C.muted).font("Helvetica").fontSize(6)
@@ -729,25 +760,27 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         const i1 = grp.items[i]
         const i2 = grp.items[i + 1] as any | undefined
         const hasObs = !!i1.observaciones || (i2 && !!i2.observaciones)
-        const rowH2  = hasObs ? 15 : 9
+        const rowH2  = hasObs ? 13 : 8   // reducido para caber en página 2
 
         ensureSpace(rowH2)
 
         // Alternating row bg (spans full width)
         if ((i / 2) % 2 === 0) doc.fillColor("#f8fafc").rect(ML, y, CW, rowH2).fill()
 
-        // Render item in left column
+        // Render item — siempre muestra punto de color (verde/rojo/amarillo)
         function renderItem(item: any, rx: number) {
-          const ec = estadoColor(item.estado)
-          const isIssue = isBad(item.estado) || isWarn(item.estado)
-          if (isIssue) doc.fillColor(ec).circle(rx + 5, y + rowH2 / 2, 2.5).fill()
-          doc.fillColor(C.text).font("Helvetica").fontSize(6.5)
-            .text(item.item_label, rx + 10, y + (hasObs ? 2 : 1), { width: 168 })
-          doc.fillColor(ec).font(isIssue ? "Helvetica-Bold" : "Helvetica").fontSize(6.5)
+          const ec       = estadoColor(item.estado)
+          const isIssue  = isBad(item.estado) || isWarn(item.estado)
+          // Punto de color siempre visible
+          doc.fillColor("#ffffff").circle(rx + 5, y + rowH2 / 2, 3).fill()
+          doc.fillColor(ec).circle(rx + 5, y + rowH2 / 2, 2.5).fill()
+          doc.fillColor(C.text).font("Helvetica").fontSize(6)
+            .text(item.item_label, rx + 11, y + (hasObs ? 2 : 1), { width: 168 })
+          doc.fillColor(ec).font(isIssue ? "Helvetica-Bold" : "Helvetica").fontSize(6)
             .text(item.estado, rx + 180, y + (hasObs ? 2 : 1), { width: 82, align: "center" })
           if (item.observaciones) {
-            doc.fillColor(C.muted).font("Helvetica").fontSize(5.5)
-              .text(`↳ ${item.observaciones}`, rx + 10, y + 9, { width: COL_W - 12 })
+            doc.fillColor(C.muted).font("Helvetica").fontSize(5)
+              .text(`↳ ${item.observaciones}`, rx + 11, y + 8, { width: COL_W - 14 })
           }
         }
 
@@ -838,28 +871,33 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       ["Neumático tra. der.",   "wheel_rr"],
     ]
 
-    allZones.forEach(([label, zk]) => {
-      const zc = zones[zk]
-      doc.fillColor(zc ? (legendY % 2 === 0 ? "#fff7ed" : "#fef9f5") : C.light)
-        .rect(legendX, legendY, 114, 14).fill()
-      if (zc) {
-        doc.fillColor("#ffffff").circle(legendX + 9, legendY + 7, 5).fill()
-        doc.fillColor(zc).circle(legendX + 9, legendY + 7, 4).fill()
+    // Solo mostrar zonas con daño o advertencia (omitir las OK)
+    const damagedZones = allZones.filter(([, zk]) => !!zones[zk])
+
+    if (damagedZones.length === 0) {
+      // Si no hay daños, mostrar mensaje positivo
+      doc.fillColor("#f0fdf4").roundedRect(legendX, legendY, 114, 36, 4).fill()
+      doc.strokeColor("#86efac").lineWidth(0.5).roundedRect(legendX, legendY, 114, 36, 4).stroke()
+      doc.fillColor(C.good).font("Helvetica-Bold").fontSize(7)
+        .text("SIN DAÑOS", legendX, legendY + 6, { width: 114, align: "center" })
+      doc.fillColor(C.good).font("Helvetica").fontSize(6)
+        .text("Todas las zonas en buen estado", legendX + 4, legendY + 18, { width: 106, align: "center" })
+      legendY += 40
+    } else {
+      damagedZones.forEach(([label, zk], idx) => {
+        const zc = zones[zk]!
+        doc.fillColor(idx % 2 === 0 ? "#fff7ed" : "#fef9f5").rect(legendX, legendY, 114, 16).fill()
+        doc.fillColor("#ffffff").circle(legendX + 9, legendY + 8, 5.5).fill()
+        doc.fillColor(zc).circle(legendX + 9, legendY + 8, 4.5).fill()
         doc.fillColor(C.text).font("Helvetica-Bold").fontSize(6.5)
-          .text(label, legendX + 18, legendY + 3.5, { width: 90 })
+          .text(label, legendX + 18, legendY + 2, { width: 90 })
         doc.fillColor(zc).font("Helvetica-Bold").fontSize(5.5)
-          .text(zc === C.bad ? "CON DAÑO" : "ADVERTENCIA", legendX + 18, legendY + 3.5, { width: 90, align: "right" })
-      } else {
-        doc.fillColor("#9ca3af").circle(legendX + 9, legendY + 7, 3).fill()
-        doc.fillColor(C.muted).font("Helvetica").fontSize(6.5)
-          .text(label, legendX + 18, legendY + 3.5, { width: 92 })
-        doc.fillColor("#d1d5db").font("Helvetica").fontSize(5.5)
-          .text("OK", legendX + 18, legendY + 3.5, { width: 88, align: "right" })
-      }
-      doc.strokeColor(C.mid).lineWidth(0.3)
-        .moveTo(legendX, legendY + 14).lineTo(legendX + 114, legendY + 14).stroke()
-      legendY += 14
-    })
+          .text(zc === C.bad ? "CON DAÑO" : "ADVERTENCIA", legendX + 18, legendY + 9, { width: 90 })
+        doc.strokeColor(C.mid).lineWidth(0.3)
+          .moveTo(legendX, legendY + 16).lineTo(legendX + 114, legendY + 16).stroke()
+        legendY += 16
+      })
+    }
 
     // Legend box at bottom
     legendY += 8
