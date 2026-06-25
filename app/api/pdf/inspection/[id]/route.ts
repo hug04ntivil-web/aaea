@@ -623,22 +623,23 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       y += defBoxH + 4
     }
 
-    // ── Observaciones inspector ───────────────────────────────────────────────
-    if (ins.comentarios) {
-      const SIG_AREA = PH - 118  // firmas empiezan aquí (724pt)
-      y = sectionBar(doc, "OBSERVACIONES DEL INSPECTOR", y)
-      const available = Math.max(SIG_AREA - y - 6, 22)
-      const lines = (ins.comentarios.match(/\n/g) || []).length + 1
-      const obsH = Math.min(Math.max(lines * 9, 22), Math.min(56, available))
-      doc.fillColor("#f0fdf4").rect(ML, y, CW, obsH).fill()
-      doc.strokeColor("#86efac").lineWidth(0.5).rect(ML, y, CW, obsH).stroke()
-      doc.fillColor(C.text).font("Helvetica").fontSize(7.5)
-        .text(ins.comentarios.slice(0, 800), ML + 7, y + 4, { width: CW - 14, lineGap: 1.5, height: obsH - 7, ellipsis: true })
-      y += obsH + 4
-    }
-
     // ── Firmas — ANCLADAS AL PIE DE LA PÁGINA ────────────────────────────────
-    const SIG_TOP = PH - 118  // siempre al pie
+    const SIG_TOP = PH - 118  // siempre al pie (724pt)
+
+    // ── Observaciones inspector — ancladas justo encima de las firmas ─────────
+    if (ins.comentarios) {
+      const obsLines = (ins.comentarios.match(/\n/g) || []).length + 1
+      const obsH = Math.min(Math.max(obsLines * 10, 28), 64)
+      const barY  = SIG_TOP - 12 - obsH - 16
+      const obsY  = barY + 16
+      doc.fillColor(C.brand).rect(ML, barY, CW, 13).fill()
+      doc.fillColor(C.white).font("Helvetica-Bold").fontSize(7)
+        .text("OBSERVACIONES DEL INSPECTOR", ML + 7, barY + 3)
+      doc.fillColor("#f0fdf4").rect(ML, obsY, CW, obsH).fill()
+      doc.strokeColor("#86efac").lineWidth(0.5).rect(ML, obsY, CW, obsH).stroke()
+      doc.fillColor(C.text).font("Helvetica").fontSize(7.5)
+        .text(ins.comentarios, ML + 8, obsY + 5, { width: CW - 16, lineGap: 2, height: obsH - 8, ellipsis: true })
+    }
 
     const notaFinal = ins.nota_final ?? 0
     const verdict = notaFinal >= 6.5 ? "APROBADO" : notaFinal >= 5 ? "CONDICIONADO" : "RECHAZADO"
