@@ -800,6 +800,21 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       }
     })
 
+    // ── Observaciones del inspector (al final de la tabla detallada) ────────────
+    if (ins.comentarios) {
+      ensureSpace(60)
+      doc.fillColor(C.brand).rect(ML, y, CW, 13).fill()
+      doc.fillColor(C.white).font("Helvetica-Bold").fontSize(7).text("OBSERVACIONES DEL INSPECTOR", ML + 7, y + 3)
+      y += 16
+      const obsLines = (ins.comentarios.match(/\n/g) || []).length + 1
+      const obsH = Math.max(obsLines * 10, 28)
+      doc.fillColor("#f0fdf4").rect(ML, y, CW, obsH).fill()
+      doc.strokeColor("#86efac").lineWidth(0.5).rect(ML, y, CW, obsH).stroke()
+      doc.fillColor(C.text).font("Helvetica").fontSize(8)
+        .text(ins.comentarios, ML + 8, y + 6, { width: CW - 16, lineGap: 2 })
+      y += obsH + 8
+    }
+
     // ── Fotos ─────────────────────────────────────────────────────────────────
     if (photos.length > 0) {
       pgFooter(doc, company, pgNum)
