@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
-import { Search, ChevronRight, User, Car, ClipboardList, ArrowUp, X, Camera, Sparkles } from "lucide-react"
+import { Search, ChevronRight, User, Car, ClipboardList, ArrowUp, X, Camera, Sparkles, Loader2 } from "lucide-react"
 import { INSPECTION_ITEMS, getSubsections, getItemsBySubsection } from "@/lib/inspection-items"
 import { cn, calcNotaFinal, calcSectionScore } from "@/lib/utils"
 import { VEHICLE_MAKES, VEHICLE_COLORS, VEHICLE_TYPES, getModels } from "@/lib/vehicle-data"
@@ -29,14 +29,23 @@ interface Props {
   initialData?: InitialData
 }
 
-type Step = "vehicle" | "client" | "visual" | "carroceria" | "mecanica"
+type Step = "vehicle" | "client" | "visual" | "carroceria" | "mecanica" | "fotos" | "observaciones"
+type AiStyle = "compacto" | "estandar" | "detallado"
 
 const STEPS: { key: Step; label: string; icon: React.ElementType }[] = [
-  { key: "vehicle", label: "Vehículo", icon: Car },
-  { key: "client", label: "Cliente", icon: User },
-  { key: "visual", label: "Visual", icon: ClipboardList },
-  { key: "carroceria", label: "Carrocería", icon: ClipboardList },
-  { key: "mecanica", label: "Mecánica", icon: ClipboardList },
+  { key: "vehicle",       label: "Vehículo",      icon: Car },
+  { key: "client",        label: "Cliente",        icon: User },
+  { key: "visual",        label: "Visual",         icon: ClipboardList },
+  { key: "carroceria",    label: "Carrocería",     icon: ClipboardList },
+  { key: "mecanica",      label: "Mecánica",       icon: ClipboardList },
+  { key: "fotos",         label: "Fotos",          icon: Camera },
+  { key: "observaciones", label: "Observaciones",  icon: Sparkles },
+]
+
+const AI_STYLES: { key: AiStyle; label: string; desc: string }[] = [
+  { key: "compacto",  label: "Compacto",  desc: "2-3 oraciones" },
+  { key: "estandar",  label: "Estándar",  desc: "~100 palabras" },
+  { key: "detallado", label: "Detallado", desc: "3 párrafos" },
 ]
 
 const SECTION_ITEMS = {
@@ -120,7 +129,7 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients,
   const router = useRouter()
   const [step, setStep] = useState<Step>("vehicle")
   const [savingAs, setSavingAs] = useState<"" | "draft" | "complete">("")
-  const [aiLoading, setAiLoading] = useState(false)
+  const [aiLoading, setAiLoading] = useState<AiStyle | null>(null)
   const [searching, setSearching] = useState(false)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [vehicleSearched, setVehicleSearched] = useState(false)
@@ -325,13 +334,13 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients,
     )
   }
 
-  async function handleAI() {
-    setAiLoading(true)
+  async function handleAI(style: AiStyle) {
+    setAiLoading(style)
     try {
       const res = await fetch("/api/ai/inspection-suggestions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vehicle, items, notaVisual, notaCarroceria, notaMecanica, notaFinal, comentarios }),
+        body: JSON.stringify({ vehicle, items, notaVisual, notaCarroceria, notaMecanica, notaFinal, comentarios, style }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "Error IA")
@@ -340,7 +349,7 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients,
     } catch (err: any) {
       toast.error(err.message ?? "Error al generar con IA")
     } finally {
-      setAiLoading(false)
+      setAiLoading(null)
     }
   }
 
@@ -420,6 +429,15 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients,
   const sectionScore = step === "visual" ? notaVisual : step === "carroceria" ? notaCarroceria : step === "mecanica" ? notaMecanica : null
   const sectionLabel = step === "visual" ? "Inspección Visual" : step === "carroceria" ? "Carrocería" : step === "mecanica" ? "Mecánica" : ""
   const sectionNum = step === "visual" ? "1/3" : step === "carroceria" ? "2/3" : step === "mecanica" ? "3/3" : ""
+
+  const STEP_NEXT: Partial<Record<Step, Step>> = {
+    vehicle: "client", client: "visual", visual: "carroceria",
+    carroceria: "mecanica", mecanica: "fotos", fotos: "observaciones",
+  }
+  const STEP_PREV: Partial<Record<Step, Step>> = {
+    client: "vehicle", visual: "client", carroceria: "visual",
+    mecanica: "carroceria", fotos: "mecanica", observaciones: "fotos",
+  }
 
   return (
     <div className="max-w-2xl mx-auto pb-20" ref={topRef}>
@@ -747,6 +765,7 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients,
           <div className="flex gap-2 mt-5">
             <button onClick={() => goToStep("vehicle")} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50 transition">← Volver</button>
             <button onClick={() => goToStep("visual")} className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium text-sm transition">Iniciar inspección →</button>
+
           </div>
         </div>
       )}
@@ -774,145 +793,176 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients,
             <ScoreBar value={sectionScore} />
           </div>
 
-          {/* Fotografías — solo en la última sección, antes de comentarios */}
-          {step === "mecanica" && (
-            <div className="mt-5">
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
-                  <Camera size={15} className="text-gray-400" /> Fotografías del vehículo
-                </label>
-                <span className="text-xs text-gray-400">{photoFiles.length}/10 · máx. 5 MB c/u</span>
-              </div>
-
-              {photoFiles.length > 0 && (
-                <div className="grid grid-cols-3 gap-2 mb-3">
-                  {photoFiles.map((p, i) => (
-                    <div key={i} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
-                      <img src={p.preview} alt={`Foto ${i + 1}`} className="w-full h-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => removePhoto(i)}
-                        className="absolute top-1 right-1 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold leading-none transition"
-                      >
-                        ×
-                      </button>
-                      <span className="absolute bottom-1 left-1 bg-black/50 text-white text-[9px] px-1.5 py-0.5 rounded-full">
-                        {i + 1}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <input
-                ref={photoInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={handlePhotoAdd}
-              />
-
-              {photoFiles.length < 10 && (
-                <button
-                  type="button"
-                  onClick={() => photoInputRef.current?.click()}
-                  className="w-full py-3 border-2 border-dashed border-gray-200 hover:border-blue-300 rounded-xl text-sm text-gray-400 hover:text-blue-500 transition flex items-center justify-center gap-2"
-                >
-                  <Camera size={15} /> Agregar fotos
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Comentarios solo en la última sección */}
-          {step === "mecanica" && (
-            <div className="mt-4">
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm font-medium text-gray-700">Observaciones finales</label>
-                <button
-                  type="button"
-                  onClick={handleAI}
-                  disabled={aiLoading}
-                  className="flex items-center gap-1 text-xs px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg border border-purple-200 transition disabled:opacity-50"
-                >
-                  <Sparkles size={11} />
-                  {aiLoading ? "Generando..." : "Completar con IA"}
-                </button>
-              </div>
-              <textarea
-                value={comentarios}
-                onChange={e => setComentarios(e.target.value)}
-                rows={4}
-                placeholder="Observaciones generales de la inspección..."
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-              />
-            </div>
-          )}
-
-          {/* Resumen final solo en última sección */}
-          {step === "mecanica" && (
-            <div className="mt-4 p-4 bg-slate-800 rounded-xl text-white">
-              <p className="text-xs text-slate-400 mb-3">Resumen de notas</p>
-              <div className="grid grid-cols-3 gap-3 mb-3">
-                {[
-                  { label: "Visual", value: notaVisual },
-                  { label: "Carrocería", value: notaCarroceria },
-                  { label: "Mecánica", value: notaMecanica },
-                ].map(s => (
-                  <div key={s.label} className="text-center">
-                    <p className="text-xs text-slate-400">{s.label}</p>
-                    <p className={cn("text-xl font-black", s.value >= 6.5 ? "text-green-400" : s.value >= 5 ? "text-yellow-400" : "text-red-400")}>
-                      {s.value.toFixed(1)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-              <div className="border-t border-slate-600 pt-3 text-center">
-                <p className="text-xs text-slate-400 mb-1">Nota final</p>
-                <p className={cn("text-5xl font-black", notaFinal >= 6.5 ? "text-green-400" : notaFinal >= 5 ? "text-yellow-400" : "text-red-400")}>
-                  {notaFinal.toFixed(1)}
-                </p>
-                <p className="text-slate-500 text-sm mt-0.5">/ 7.0</p>
-                <p className={cn("text-lg font-bold mt-0.5", notaFinal >= 6.5 ? "text-green-400" : notaFinal >= 5 ? "text-yellow-400" : "text-red-400")}>
-                  {Math.round((notaFinal / 7) * 100)}%
-                </p>
-              </div>
-            </div>
-          )}
-
           <div className="flex gap-2 mt-5">
             <button
-              onClick={() => goToStep(step === "visual" ? "client" : step === "carroceria" ? "visual" : "carroceria")}
+              onClick={() => { const prev = STEP_PREV[step]; if (prev) goToStep(prev) }}
               className="py-2.5 px-4 border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50 transition"
             >
               ← Volver
             </button>
-            {step !== "mecanica" ? (
+            <button
+              onClick={() => { const next = STEP_NEXT[step]; if (next) goToStep(next) }}
+              className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium text-sm transition"
+            >
+              {step === "visual" ? "Carrocería →" : step === "carroceria" ? "Mecánica →" : "Fotos →"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── PASO 6: FOTOS ─── */}
+      {step === "fotos" && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 sm:p-5">
+          <h2 className="font-bold text-gray-800 mb-1">Fotografías del vehículo</h2>
+          <p className="text-xs text-gray-400 mb-4">Máximo 10 fotos · 5 MB cada una</p>
+
+          {photoFiles.length > 0 && (
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              {photoFiles.map((p, i) => (
+                <div key={i} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
+                  <img src={p.preview} alt={`Foto ${i + 1}`} className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removePhoto(i)}
+                    className="absolute top-1 right-1 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold leading-none transition"
+                  >
+                    ×
+                  </button>
+                  <span className="absolute bottom-1 left-1 bg-black/50 text-white text-[9px] px-1.5 py-0.5 rounded-full">
+                    {i + 1}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={handlePhotoAdd}
+          />
+
+          {photoFiles.length < 10 && (
+            <button
+              type="button"
+              onClick={() => photoInputRef.current?.click()}
+              className="w-full py-6 border-2 border-dashed border-gray-200 hover:border-blue-300 rounded-xl text-sm text-gray-400 hover:text-blue-500 transition flex flex-col items-center justify-center gap-2"
+            >
+              <Camera size={22} />
+              <span>{photoFiles.length > 0 ? "Agregar más fotos" : "Toca aquí para agregar fotos"}</span>
+              <span className="text-xs text-gray-300">{photoFiles.length}/10 agregadas</span>
+            </button>
+          )}
+
+          <div className="flex gap-2 mt-5">
+            <button
+              onClick={() => goToStep("mecanica")}
+              className="py-2.5 px-4 border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50 transition"
+            >
+              ← Volver
+            </button>
+            <button
+              onClick={() => goToStep("observaciones")}
+              className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium text-sm transition"
+            >
+              Observaciones →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── PASO 7: OBSERVACIONES ─── */}
+      {step === "observaciones" && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 sm:p-5">
+          <h2 className="font-bold text-gray-800 mb-1">Observaciones finales</h2>
+          <p className="text-xs text-gray-400 mb-4">Genera con IA o escribe tus propias observaciones</p>
+
+          {/* Botones de estilo IA */}
+          <div className="flex flex-col sm:flex-row gap-2 mb-3">
+            {AI_STYLES.map(s => (
               <button
-                onClick={() => goToStep(step === "visual" ? "carroceria" : "mecanica")}
-                className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium text-sm transition"
+                key={s.key}
+                type="button"
+                onClick={() => handleAI(s.key)}
+                disabled={!!aiLoading}
+                className={cn(
+                  "flex-1 flex flex-col items-center gap-0.5 px-3 py-2.5 rounded-xl text-sm font-medium border transition disabled:opacity-60",
+                  "bg-white text-gray-700 border-purple-200 hover:border-purple-400 hover:bg-purple-50 hover:text-purple-700"
+                )}
               >
-                {step === "visual" ? "Carrocería →" : "Mecánica →"}
+                {aiLoading === s.key
+                  ? <Loader2 size={14} className="animate-spin text-purple-500" />
+                  : <Sparkles size={14} className="text-purple-400" />
+                }
+                <span>{aiLoading === s.key ? "Generando..." : s.label}</span>
+                <span className="text-xs font-normal text-gray-400">{s.desc}</span>
               </button>
-            ) : (
-              <div className="flex flex-col gap-2 flex-1">
-                <button
-                  onClick={() => handleSave("completed")}
-                  disabled={!!savingAs}
-                  className="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-sm disabled:opacity-50 transition"
-                >
-                  {savingAs === "complete" ? "Guardando..." : "✓ Guardar y completar"}
-                </button>
-                <button
-                  onClick={() => handleSave("draft")}
-                  disabled={!!savingAs}
-                  className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-medium disabled:opacity-50 transition"
-                >
-                  {savingAs === "draft" ? "Guardando..." : "💾 Guardar borrador"}
-                </button>
-              </div>
-            )}
+            ))}
+          </div>
+
+          <textarea
+            value={comentarios}
+            onChange={e => setComentarios(e.target.value)}
+            rows={6}
+            placeholder="Las observaciones generadas por IA aparecerán aquí, o escribe las tuyas..."
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+          />
+
+          {/* Resumen de notas */}
+          <div className="mt-4 p-4 bg-slate-800 rounded-xl text-white">
+            <p className="text-xs text-slate-400 mb-3">Resumen de notas</p>
+            <div className="grid grid-cols-3 gap-3 mb-3">
+              {[
+                { label: "Visual", value: notaVisual },
+                { label: "Carrocería", value: notaCarroceria },
+                { label: "Mecánica", value: notaMecanica },
+              ].map(s => (
+                <div key={s.label} className="text-center">
+                  <p className="text-xs text-slate-400">{s.label}</p>
+                  <p className={cn("text-xl font-black", s.value >= 6.5 ? "text-green-400" : s.value >= 5 ? "text-yellow-400" : "text-red-400")}>
+                    {s.value.toFixed(1)}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-slate-600 pt-3 text-center">
+              <p className="text-xs text-slate-400 mb-1">Nota final</p>
+              <p className={cn("text-5xl font-black", notaFinal >= 6.5 ? "text-green-400" : notaFinal >= 5 ? "text-yellow-400" : "text-red-400")}>
+                {notaFinal.toFixed(1)}
+              </p>
+              <p className="text-slate-500 text-sm mt-0.5">/ 7.0</p>
+              <p className={cn("text-lg font-bold mt-0.5", notaFinal >= 6.5 ? "text-green-400" : notaFinal >= 5 ? "text-yellow-400" : "text-red-400")}>
+                {Math.round((notaFinal / 7) * 100)}%
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-2 mt-5">
+            <button
+              onClick={() => goToStep("fotos")}
+              className="py-2.5 px-4 border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50 transition"
+            >
+              ← Volver
+            </button>
+            <div className="flex flex-col gap-2 flex-1">
+              <button
+                onClick={() => handleSave("completed")}
+                disabled={!!savingAs}
+                className="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-sm disabled:opacity-50 transition"
+              >
+                {savingAs === "complete" ? "Guardando..." : "✓ Guardar y completar"}
+              </button>
+              <button
+                onClick={() => handleSave("draft")}
+                disabled={!!savingAs}
+                className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-medium disabled:opacity-50 transition"
+              >
+                {savingAs === "draft" ? "Guardando..." : "💾 Guardar borrador"}
+              </button>
+            </div>
           </div>
         </div>
       )}
