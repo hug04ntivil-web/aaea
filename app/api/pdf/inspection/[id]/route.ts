@@ -624,14 +624,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     // ── Observaciones inspector ───────────────────────────────────────────────
-    if (ins.comentarios && y < 680) {
+    if (ins.comentarios) {
+      const SIG_AREA = PH - 118  // firmas empiezan aquí (724pt)
       y = sectionBar(doc, "OBSERVACIONES DEL INSPECTOR", y)
+      const available = Math.max(SIG_AREA - y - 6, 22)
       const lines = (ins.comentarios.match(/\n/g) || []).length + 1
-      const obsH = Math.min(Math.max(lines * 9, 28), 48)
+      const obsH = Math.min(Math.max(lines * 9, 22), Math.min(56, available))
       doc.fillColor("#f0fdf4").rect(ML, y, CW, obsH).fill()
       doc.strokeColor("#86efac").lineWidth(0.5).rect(ML, y, CW, obsH).stroke()
       doc.fillColor(C.text).font("Helvetica").fontSize(7.5)
-        .text(ins.comentarios.slice(0, 500), ML + 7, y + 5, { width: CW - 14, lineGap: 1.5, height: obsH - 8, ellipsis: true })
+        .text(ins.comentarios.slice(0, 800), ML + 7, y + 4, { width: CW - 14, lineGap: 1.5, height: obsH - 7, ellipsis: true })
       y += obsH + 4
     }
 
