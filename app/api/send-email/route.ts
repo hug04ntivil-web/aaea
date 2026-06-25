@@ -2,13 +2,25 @@ import { NextRequest, NextResponse } from "next/server"
 import { Resend } from "resend"
 import { createClient } from "@/lib/supabase/server"
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+function cleanKey(k: string | undefined) {
+  return k?.replace(/﻿/g, "").trim() ?? ""
+}
 
 export async function POST(req: NextRequest) {
+  const resend = new Resend(cleanKey(process.env.RESEND_API_KEY))
   try {
     const body = await req.json()
     const { type, id, email, publicUrl, customSubject, customBody, attachPdf } = body
     const supabase = await createClient()
+
+    // Nombre de empresa desde settings (con fallback)
+    const { data: settingsRows } = await supabase
+      .from("settings")
+      .select("key, value")
+      .in("key", ["company_name", "company_logo_url"])
+    const settingsMap: Record<string, string> = {}
+    settingsRows?.forEach(r => { settingsMap[r.key] = r.value ?? "" })
+    const companyName = settingsMap["company_name"] || "AAEA Inspecciones"
 
     if (type === "inspection") {
       const { data: ins } = await supabase
@@ -28,7 +40,7 @@ export async function POST(req: NextRequest) {
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; margin: 0; padding: 20px;">
   <div style="max-width: 560px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
     <div style="background: #0f172a; padding: 24px; text-align: center;">
-      <h1 style="color: white; font-size: 20px; margin: 0; font-weight: 700;">AAEA Inspecciones</h1>
+      <h1 style="color: white; font-size: 20px; margin: 0; font-weight: 700;">${companyName}</h1>
       <p style="color: #94a3b8; font-size: 13px; margin: 4px 0 0;">Informe de inspección vehicular</p>
     </div>
     <div style="padding: 28px;">
@@ -46,7 +58,7 @@ export async function POST(req: NextRequest) {
       <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 16px;">Inspector: ${ins.profiles?.full_name} · ${new Date(ins.fecha_inspeccion).toLocaleDateString("es-CL")}</p>
     </div>
     <div style="background: #f8fafc; padding: 16px; text-align: center; border-top: 1px solid #e5e7eb;">
-      <p style="color: #9ca3af; font-size: 11px; margin: 0;">AAEA Inspecciones · Todos los derechos reservados</p>
+      <p style="color: #9ca3af; font-size: 11px; margin: 0;">${companyName} · Todos los derechos reservados</p>
     </div>
   </div>
 </body>
@@ -93,12 +105,12 @@ export async function POST(req: NextRequest) {
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; margin: 0; padding: 20px;">
   <div style="max-width: 560px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
     <div style="background: #0ea5e9; padding: 24px; text-align: center;">
-      <h1 style="color: white; font-size: 20px; margin: 0; font-weight: 700;">AAEA Inspecciones</h1>
+      <h1 style="color: white; font-size: 20px; margin: 0; font-weight: 700;">${companyName}</h1>
       <p style="color: #e0f2fe; font-size: 13px; margin: 4px 0 0;">Presupuesto ${budget.numero}</p>
     </div>
     <div style="padding: 28px;">${bodyHtml}</div>
     <div style="background: #f8fafc; padding: 16px; text-align: center; border-top: 1px solid #e5e7eb;">
-      <p style="color: #9ca3af; font-size: 11px; margin: 0;">AAEA Inspecciones · NO VÁLIDO COMO BOLETA/FACTURA</p>
+      <p style="color: #9ca3af; font-size: 11px; margin: 0;">${companyName} · NO VÁLIDO COMO BOLETA/FACTURA</p>
     </div>
   </div>
 </body>

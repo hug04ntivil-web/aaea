@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" fill="none">
+  <!-- Icono: auto con escudo/check -->
+  <rect x="2" y="2" width="56" height="56" rx="14" fill="#2563eb"/>
+  <!-- Car body -->
+  <path d="M10 36 L12 26 L20 22 L38 22 L46 26 L48 36 Z" fill="white" opacity="0.15"/>
+  <path d="M12 36 Q12 38 14 38 L44 38 Q46 38 46 36 L46 28 L44 26 L38 24 L20 24 L16 26 L14 28 Z" fill="white"/>
+  <!-- Roof -->
+  <path d="M18 24 L22 16 L36 16 L40 24 Z" fill="white" opacity="0.9"/>
+  <!-- Wheels -->
+  <circle cx="19" cy="38" r="5" fill="#1e40af"/>
+  <circle cx="19" cy="38" r="2.5" fill="white"/>
+  <circle cx="39" cy="38" r="5" fill="#1e40af"/>
+  <circle cx="39" cy="38" r="2.5" fill="white"/>
+  <!-- Checkmark -->
+  <circle cx="46" cy="14" r="8" fill="#22c55e"/>
+  <path d="M42 14 L45 17 L50 11" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Texto AAEA -->
+  <text x="65" y="28" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="800" fill="#1e293b" letter-spacing="-0.5">AAEA</text>
+  <!-- Subtítulo -->
+  <text x="65" y="44" font-family="system-ui, -apple-system, sans-serif" font-size="10" font-weight="500" fill="#64748b" letter-spacing="1.5">INSPECCIONES</text>
+</svg>

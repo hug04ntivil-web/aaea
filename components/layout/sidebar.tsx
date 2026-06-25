@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
@@ -7,7 +8,7 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import {
   LayoutDashboard, Car, ClipboardList, Users, Settings,
-  MessageSquare, LogOut, FileText, UserCircle, Receipt, X
+  MessageSquare, LogOut, FileText, UserCircle, Receipt, X, CalendarDays
 } from "lucide-react"
 
 interface NavItem {
@@ -28,6 +29,7 @@ const adminNav: NavItem[] = [
 
 const inspectorNav: NavItem[] = [
   { href: "/inspector/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/inspector/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/inspector/inspections/new", label: "Nueva inspección", icon: Car },
   { href: "/inspector/inspections", label: "Mis inspecciones", icon: ClipboardList },
   { href: "/inspector/budgets", label: "Presupuestos", icon: Receipt },
@@ -52,6 +54,15 @@ interface SidebarProps {
 export default function Sidebar({ role, userName, open, onClose }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [companyName, setCompanyName] = useState("AAEA")
+
+  useEffect(() => {
+    fetch("/api/settings/logo")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.logoUrl) setLogoUrl(d.logoUrl); if (d?.companyName) setCompanyName(d.companyName) })
+      .catch(() => {})
+  }, [])
 
   const nav = role === "admin" ? adminNav : role === "inspector" ? inspectorNav : clientNav
   const roleLabel = role === "admin" ? "Administrador" : role === "inspector" ? "Inspector" : "Cliente"
@@ -82,15 +93,11 @@ export default function Sidebar({ role, userName, open, onClose }: SidebarProps)
       )}>
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-slate-700">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
-              <span className="text-white text-xs font-black">AA</span>
-            </div>
-            <div>
-              <p className="text-sm font-bold leading-tight">AAEA</p>
-              <p className="text-xs text-slate-400">Inspecciones</p>
-            </div>
-          </div>
+          {logoUrl ? (
+            <img src={logoUrl} alt={companyName} className="h-8 w-auto object-contain max-w-[140px]" />
+          ) : (
+            <span className="text-white font-bold text-lg tracking-wide">{companyName}</span>
+          )}
           <button onClick={onClose} className="lg:hidden text-slate-400 hover:text-white">
             <X size={18} />
           </button>

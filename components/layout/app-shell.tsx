@@ -15,7 +15,7 @@ export default function AppShell({ role, userName, pageTitle, children }: AppShe
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-[var(--bg-app)] overflow-hidden">
       <Sidebar
         role={role}
         userName={userName}

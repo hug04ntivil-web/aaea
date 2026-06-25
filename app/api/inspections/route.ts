@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
 
   const body = await request.json()
-  const { vehicle, newClient, selectedClientId, isNewClient, notaVisual, notaCarroceria, notaMecanica, comentarios, photos, items, inspectorId } = body
+  const { vehicle, newClient, selectedClientId, isNewClient, notaVisual, notaCarroceria, notaMecanica, comentarios, photos, items, inspectorId, status } = body
 
   try {
     // 1. Guardar / actualizar vehículo (server client con RLS de inspector/admin)
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
         nota_final: notaFinal,
         comentarios,
         photos: photos ?? [],
-        status: "completed",
+        status: status === "draft" ? "draft" : "completed",
         public_token: publicToken,
       })
       .select()

@@ -4,6 +4,8 @@ import AppShell from "@/components/layout/app-shell"
 import ScoreCard from "@/components/inspection/score-card"
 import ItemsView from "@/components/inspection/items-view"
 import ShareButtons from "@/components/inspection/share-buttons"
+import AiSummaryButton from "@/components/inspection/ai-summary-button"
+import VehicleHistory from "@/components/vehicle/vehicle-history"
 import { formatDate } from "@/lib/utils"
 import { Car, User, Calendar } from "lucide-react"
 
@@ -21,6 +23,21 @@ export default async function InspectionDetail({ params }: { params: Promise<{ i
     .single()
 
   if (!inspection) notFound()
+
+  // Historial del vehículo
+  const vehicleId = inspection.vehicle_id
+  const [{ data: vehicleInspections }, { data: vehicleBudgets }] = await Promise.all([
+    supabase.from("inspections")
+      .select("id, fecha_inspeccion, nota_final, status")
+      .eq("vehicle_id", vehicleId)
+      .order("fecha_inspeccion", { ascending: false })
+      .limit(10),
+    supabase.from("budgets")
+      .select("id, numero, total, status, created_at")
+      .eq("vehicle_patente", inspection.vehicles?.patente)
+      .order("created_at", { ascending: false })
+      .limit(10),
+  ])
 
   return (
     <AppShell role={profile?.role as any} userName={profile?.full_name ?? ""} pageTitle={`Inspección — ${inspection.vehicles?.patente}`}>
@@ -71,11 +88,20 @@ export default async function InspectionDetail({ params }: { params: Promise<{ i
         )}
 
         {inspection.comentarios && (
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-            <h3 className="font-semibold text-gray-800 mb-2">Comentarios generales</h3>
-            <p className="text-sm text-gray-600 whitespace-pre-wrap">{inspection.comentarios}</p>
+          <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] shadow-sm p-5">
+            <h3 className="font-semibold text-[var(--text-1)] mb-2">Comentarios generales</h3>
+            <p className="text-sm text-[var(--text-2)] whitespace-pre-wrap">{inspection.comentarios}</p>
           </div>
         )}
+
+        <AiSummaryButton inspectionId={inspection.id} />
+
+        <VehicleHistory
+          patente={inspection.vehicles?.patente ?? ""}
+          inspections={vehicleInspections ?? []}
+          budgets={vehicleBudgets ?? []}
+          currentInspectionId={inspection.id}
+        />
       </div>
     </AppShell>
   )

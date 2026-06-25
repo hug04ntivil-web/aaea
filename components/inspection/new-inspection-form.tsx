@@ -4,9 +4,11 @@ import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
-import { Search, ChevronRight, User, Car, ClipboardList, ArrowUp, X, Camera } from "lucide-react"
+import { Search, ChevronRight, User, Car, ClipboardList, ArrowUp, X, Camera, Sparkles } from "lucide-react"
 import { INSPECTION_ITEMS, getSubsections, getItemsBySubsection } from "@/lib/inspection-items"
 import { cn, calcNotaFinal, calcSectionScore } from "@/lib/utils"
+import { VEHICLE_MAKES, VEHICLE_COLORS, VEHICLE_TYPES, getModels } from "@/lib/vehicle-data"
+import VehicleCombobox from "@/components/ui/vehicle-combobox"
 
 interface Client { id: string; full_name: string; email: string; phone: string }
 
@@ -81,10 +83,33 @@ function ScrollToTopButton() {
   )
 }
 
+function StickyProgress({ pct, score }: { pct: number; score: number }) {
+  const color = score >= 6.5 ? "bg-green-500" : score >= 5 ? "bg-yellow-500" : "bg-red-500"
+  const textColor = score >= 6.5 ? "text-green-500" : score >= 5 ? "text-yellow-500" : "text-red-500"
+  return (
+    <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-gray-100 shadow-sm -mx-4 px-4 py-2 mb-4">
+      <div className="flex items-center gap-3 max-w-2xl mx-auto">
+        <span className="text-xl select-none" style={{ transform: `translateX(${Math.round(pct * 0.6)}%)`, display: "inline-block", transition: "transform 0.5s ease" }}>🚗</span>
+        <div className="flex-1">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-medium text-gray-500">Completado</span>
+            <span className="text-xs font-bold text-gray-700">{pct}%</span>
+          </div>
+          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div className={cn("h-full rounded-full transition-all duration-500", pct > 0 ? color : "bg-gray-200")} style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+        {score > 0 && <span className={cn("text-sm font-black tabular-nums w-8 text-right", textColor)}>{score.toFixed(1)}</span>}
+      </div>
+    </div>
+  )
+}
+
 export default function NewInspectionForm({ inspectorId, inspectorName, clients }: Props) {
   const router = useRouter()
   const [step, setStep] = useState<Step>("vehicle")
-  const [loading, setLoading] = useState(false)
+  const [savingAs, setSavingAs] = useState<"" | "draft" | "complete">("")
+  const [aiLoading, setAiLoading] = useState(false)
   const [searching, setSearching] = useState(false)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const topRef = useRef<HTMLDivElement>(null)
@@ -141,6 +166,13 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
   const notaMecanica = calcSectionScore(SECTION_ITEMS.mecanica, items)
   const notaFinal = calcNotaFinal(notaVisual, notaCarroceria, notaMecanica)
 
+  // Progress calculation
+  const totalItems = INSPECTION_ITEMS.length
+  const evaluatedItems = Object.values(items).filter(i => i.estado !== "N/A").length
+  const vehicleDone = vehicle.patente && vehicle.marca && vehicle.modelo ? 1 : 0
+  const clientDone = selectedClientId || (isNewClient && newClient.full_name) ? 1 : 0
+  const progressPct = Math.min(100, Math.round(((vehicleDone + clientDone + evaluatedItems) / (totalItems + 2)) * 100))
+
   function scrollTop() {
     topRef.current?.scrollIntoView({ behavior: "smooth" })
   }
@@ -158,63 +190,41 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
     try {
       // 1. Buscar en Supabase
       const res = await fetch(`/api/vehicles?patente=${ppu}`)
-      const { vehicle: local } = await res.json()
+      const { vehicle, source, error } = await res.json()
 
-      if (local) {
+      if (vehicle) {
         setVehicle(v => ({
           ...v,
-          patente:               local.patente    ?? ppu,
-          marca:                 local.marca      ?? "",
-          modelo:                local.modelo     ?? "",
-          anio:                  local.anio != null ? String(local.anio) : "",
-          color:                 local.color      ?? "",
-          combustible:           local.combustible  || v.combustible,
-          transmision:           local.transmision  || v.transmision,
-          traccion:              local.traccion    || v.traccion,
-          cilindrada:            local.cilindrada  ?? "",
-          tapiceria:             local.tapiceria   ?? "",
-          num_puertas:           local.num_puertas ? String(local.num_puertas) : v.num_puertas,
-          tipo_vehiculo:         local.tipo_vehiculo || v.tipo_vehiculo,
-          vin:                   local.vin         ?? "",
-          num_motor:             local.num_motor   ?? "",
-          soap_estado:           local.soap_estado ?? "",
-          soap_vencimiento:      local.soap_vencimiento ?? "",
-          rev_tecnica_estado:    local.rev_tecnica_estado ?? "",
-          rev_tecnica_vencimiento: local.rev_tecnica_vencimiento ?? "",
-          permiso_circulacion:   local.permiso_circulacion ?? "",
-          emision_contaminantes: local.emision_contaminantes ?? "",
-          multas:                local.multas ?? "$0",
+          patente:               vehicle.patente    ?? ppu,
+          marca:                 vehicle.marca      ?? "",
+          modelo:                vehicle.modelo     ?? "",
+          anio:                  vehicle.anio != null ? String(vehicle.anio) : "",
+          color:                 vehicle.color      ?? "",
+          combustible:           vehicle.combustible  || v.combustible,
+          transmision:           vehicle.transmision  || v.transmision,
+          traccion:              vehicle.traccion    || v.traccion,
+          cilindrada:            vehicle.cilindrada  ?? "",
+          tapiceria:             vehicle.tapiceria   ?? "",
+          num_puertas:           vehicle.num_puertas ? String(vehicle.num_puertas) : v.num_puertas,
+          tipo_vehiculo:         vehicle.tipo_vehiculo || v.tipo_vehiculo,
+          vin:                   vehicle.vin         ?? "",
+          num_motor:             vehicle.num_motor   ?? "",
+          soap_estado:           vehicle.soap_estado ?? "",
+          soap_vencimiento:      vehicle.soap_vencimiento ?? "",
+          rev_tecnica_estado:    vehicle.rev_tecnica_estado ?? "",
+          rev_tecnica_vencimiento: vehicle.rev_tecnica_vencimiento ?? "",
+          permiso_circulacion:   vehicle.permiso_circulacion ?? "",
+          emision_contaminantes: vehicle.emision_contaminantes ?? "",
+          multas:                vehicle.multas ?? "$0",
+          kilometraje:           vehicle.kilometraje ? String(vehicle.kilometraje) : "",
         }))
-        toast.success("Vehículo encontrado en el sistema")
+        toast.success(source === "boostr" ? "Vehículo encontrado en Boostr" : "Vehículo encontrado en el sistema")
         return
       }
 
-      // 2. Llamar a Boostr desde el browser (evita bloqueo CF en servidores)
-      const { fetchBoostrPlate } = await import("@/lib/boostr")
-      const { vehicle: boostr, error: boostrError } = await fetchBoostrPlate(ppu)
-
-      if (boostr) {
-        setVehicle(v => ({
-          ...v,
-          patente:       boostr.patente,
-          marca:         boostr.marca,
-          modelo:        boostr.modelo,
-          anio:          boostr.anio != null ? String(boostr.anio) : "",
-          color:         boostr.color,
-          combustible:   boostr.combustible  || v.combustible,
-          transmision:   boostr.transmision  || v.transmision,
-          cilindrada:    boostr.cilindrada   ?? "",
-          num_puertas:   boostr.num_puertas  || v.num_puertas,
-          tipo_vehiculo: boostr.tipo_vehiculo || v.tipo_vehiculo,
-          vin:           boostr.vin,
-          num_motor:     boostr.num_motor,
-        }))
-        toast.success("Vehículo encontrado en Boostr")
-      } else {
-        setVehicle(v => ({ ...v, patente: ppu }))
-        if (boostrError) toast.error(`Boostr: ${boostrError}`)
-        else toast.info("Patente no encontrada — completa los datos manualmente")
-      }
+      setVehicle(v => ({ ...v, patente: ppu }))
+      if (error) toast.error(`No encontrado: ${error}`)
+      else toast.info("Patente no encontrada — completa los datos manualmente")
     } catch {
       toast.error("Error al buscar patente")
     } finally {
@@ -282,9 +292,32 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
     )
   }
 
-  async function handleSave() {
-    if (!vehicle.patente || !vehicle.marca || !vehicle.modelo) {
-      toast.error("Completa los datos del vehículo (patente, marca, modelo)")
+  async function handleAI() {
+    setAiLoading(true)
+    try {
+      const res = await fetch("/api/ai/inspection-suggestions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vehicle, items, notaVisual, notaCarroceria, notaMecanica, notaFinal, comentarios }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "Error IA")
+      if (data.text) setComentarios(data.text)
+      toast.success("Observaciones generadas por IA")
+    } catch (err: any) {
+      toast.error(err.message ?? "Error al generar con IA")
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  async function handleSave(status: "draft" | "completed" = "completed") {
+    if (!vehicle.patente) {
+      toast.error("Ingresa la patente del vehículo")
+      return
+    }
+    if (status === "completed" && (!vehicle.marca || !vehicle.modelo)) {
+      toast.error("Completa los datos del vehículo (marca, modelo)")
       return
     }
     if (!selectedClientId && !isNewClient) {
@@ -295,7 +328,7 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
       toast.error("Ingresa el nombre del cliente")
       return
     }
-    setLoading(true)
+    setSavingAs(status === "draft" ? "draft" : "complete")
     try {
       // Subir fotos a Storage antes de guardar la inspección
       const photoUrls: string[] = []
@@ -329,16 +362,17 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
           photos: photoUrls,
           items,
           inspectorId,
+          status,
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "Error al guardar")
-      toast.success("Inspección guardada exitosamente")
+      toast.success(status === "draft" ? "Borrador guardado" : "Inspección completada")
       router.push(`/inspector/inspections/${data.inspectionId}`)
     } catch (err: any) {
       toast.error(err.message ?? "Error al guardar la inspección")
     } finally {
-      setLoading(false)
+      setSavingAs("")
     }
   }
 
@@ -352,6 +386,7 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
   return (
     <div className="max-w-2xl mx-auto pb-20" ref={topRef}>
       <ScrollToTopButton />
+      <StickyProgress pct={progressPct} score={notaFinal} />
 
       {/* Modal cancelar */}
       {showCancelConfirm && (
@@ -432,48 +467,146 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            {[
-              { label: "Patente *", key: "patente", placeholder: "HPTT72" },
-              { label: "Marca *", key: "marca", placeholder: "Volkswagen" },
-              { label: "Modelo *", key: "modelo", placeholder: "Golf" },
-              { label: "Año", key: "anio", placeholder: "2016", type: "number" },
-              { label: "Color", key: "color", placeholder: "Rojo Tornado" },
-              { label: "Cilindrada", key: "cilindrada", placeholder: "1.6" },
-              { label: "VIN (Chasis)", key: "vin", placeholder: "3VWBY6AU5FM..." },
-              { label: "N° Motor", key: "num_motor", placeholder: "YD25310623T" },
-              { label: "Kilometraje", key: "kilometraje", placeholder: "84245", type: "number" },
-              { label: "Tapicería", key: "tapiceria", placeholder: "Tela" },
-              { label: "N° puertas", key: "num_puertas", placeholder: "4", type: "number" },
-              { label: "Multas", key: "multas", placeholder: "$0" },
-            ].map(f => (
-              <div key={f.key}>
-                <label className="block text-xs font-medium text-gray-600 mb-1">{f.label}</label>
-                <input
-                  type={f.type ?? "text"}
-                  value={(vehicle as any)[f.key]}
-                  onChange={e => setVehicle(v => ({ ...v, [f.key]: e.target.value }))}
-                  placeholder={f.placeholder}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            ))}
-            {[
-              { label: "Combustible", key: "combustible", options: ["GASOLINA", "DIÉSEL", "HÍBRIDO", "ELÉCTRICO", "GAS"] },
-              { label: "Transmisión", key: "transmision", options: ["MECÁNICA", "AUTOMÁTICA", "CVT", "SEMIAUTOMÁTICA"] },
-              { label: "Tracción", key: "traccion", options: ["4x2", "4x4", "AWD", "FWD", "RWD"] },
-              { label: "Tipo vehículo", key: "tipo_vehiculo", options: ["auto", "camioneta", "furgón", "moto", "bus", "otro"] },
-            ].map(f => (
-              <div key={f.key}>
-                <label className="block text-xs font-medium text-gray-600 mb-1">{f.label}</label>
-                <select
-                  value={(vehicle as any)[f.key]}
-                  onChange={e => setVehicle(v => ({ ...v, [f.key]: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                >
-                  {f.options.map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
-              </div>
-            ))}
+            {/* Patente */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Patente *</label>
+              <input type="text" value={vehicle.patente}
+                onChange={e => setVehicle(v => ({ ...v, patente: e.target.value.toUpperCase() }))}
+                placeholder="HPTT72"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase font-mono" />
+            </div>
+            {/* Marca */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Marca *</label>
+              <VehicleCombobox
+                value={vehicle.marca}
+                onChange={val => setVehicle(v => ({ ...v, marca: val, modelo: "" }))}
+                options={VEHICLE_MAKES}
+                placeholder="Toyota, Ford..."
+              />
+            </div>
+            {/* Modelo */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Modelo *</label>
+              <VehicleCombobox
+                value={vehicle.modelo}
+                onChange={val => setVehicle(v => ({ ...v, modelo: val }))}
+                options={getModels(vehicle.marca)}
+                placeholder={vehicle.marca ? "Seleccionar modelo..." : "Elige marca primero"}
+              />
+            </div>
+            {/* Año */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Año</label>
+              <input type="number" value={vehicle.anio}
+                onChange={e => setVehicle(v => ({ ...v, anio: e.target.value }))}
+                placeholder="2016"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            {/* Color */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Color</label>
+              <VehicleCombobox
+                value={vehicle.color}
+                onChange={val => setVehicle(v => ({ ...v, color: val }))}
+                options={VEHICLE_COLORS}
+                placeholder="Blanco, Negro..."
+              />
+            </div>
+            {/* Cilindrada */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Cilindrada</label>
+              <input type="text" value={vehicle.cilindrada}
+                onChange={e => setVehicle(v => ({ ...v, cilindrada: e.target.value }))}
+                placeholder="1.6"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            {/* VIN */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">VIN (Chasis)</label>
+              <input type="text" value={vehicle.vin}
+                onChange={e => setVehicle(v => ({ ...v, vin: e.target.value.toUpperCase() }))}
+                placeholder="3VWBY6AU5FM..."
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase" />
+            </div>
+            {/* N° Motor */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">N° Motor</label>
+              <input type="text" value={vehicle.num_motor}
+                onChange={e => setVehicle(v => ({ ...v, num_motor: e.target.value }))}
+                placeholder="YD25310623T"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            {/* Kilometraje */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Kilometraje</label>
+              <input type="number" value={vehicle.kilometraje}
+                onChange={e => setVehicle(v => ({ ...v, kilometraje: e.target.value }))}
+                placeholder="84245"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            {/* Tapicería */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Tapicería</label>
+              <input type="text" value={vehicle.tapiceria}
+                onChange={e => setVehicle(v => ({ ...v, tapiceria: e.target.value }))}
+                placeholder="Tela"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            {/* N° puertas */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">N° puertas</label>
+              <select value={vehicle.num_puertas}
+                onChange={e => setVehicle(v => ({ ...v, num_puertas: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                {["2","3","4","5"].map(o => <option key={o} value={o}>{o} puertas</option>)}
+              </select>
+            </div>
+            {/* Multas */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Multas</label>
+              <input type="text" value={vehicle.multas}
+                onChange={e => setVehicle(v => ({ ...v, multas: e.target.value }))}
+                placeholder="$0"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            {/* Combustible */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Combustible</label>
+              <select value={vehicle.combustible}
+                onChange={e => setVehicle(v => ({ ...v, combustible: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                {["GASOLINA","DIÉSEL","HÍBRIDO","ELÉCTRICO","GAS","HÍBRIDO ENCHUFABLE"].map(o => <option key={o}>{o}</option>)}
+              </select>
+            </div>
+            {/* Transmisión */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Transmisión</label>
+              <select value={vehicle.transmision}
+                onChange={e => setVehicle(v => ({ ...v, transmision: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                {["MECÁNICA","AUTOMÁTICA","CVT","SEMIAUTOMÁTICA","DOBLE EMBRAGUE"].map(o => <option key={o}>{o}</option>)}
+              </select>
+            </div>
+            {/* Tracción */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Tracción</label>
+              <select value={vehicle.traccion}
+                onChange={e => setVehicle(v => ({ ...v, traccion: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                {["4x2","4x4","AWD","FWD","RWD"].map(o => <option key={o}>{o}</option>)}
+              </select>
+            </div>
+            {/* Tipo vehículo */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Tipo vehículo</label>
+              <VehicleCombobox
+                value={vehicle.tipo_vehiculo}
+                onChange={val => setVehicle(v => ({ ...v, tipo_vehiculo: val }))}
+                options={VEHICLE_TYPES}
+                placeholder="Auto, Camioneta..."
+              />
+            </div>
           </div>
 
           <div className="mt-4 p-3 bg-gray-50 rounded-lg">
@@ -644,11 +777,22 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
           {/* Comentarios solo en la última sección */}
           {step === "mecanica" && (
             <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Observaciones finales</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm font-medium text-gray-700">Observaciones finales</label>
+                <button
+                  type="button"
+                  onClick={handleAI}
+                  disabled={aiLoading}
+                  className="flex items-center gap-1 text-xs px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg border border-purple-200 transition disabled:opacity-50"
+                >
+                  <Sparkles size={11} />
+                  {aiLoading ? "Generando..." : "Completar con IA"}
+                </button>
+              </div>
               <textarea
                 value={comentarios}
                 onChange={e => setComentarios(e.target.value)}
-                rows={3}
+                rows={4}
                 placeholder="Observaciones generales de la inspección..."
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               />
@@ -689,7 +833,7 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
           <div className="flex gap-2 mt-5">
             <button
               onClick={() => goToStep(step === "visual" ? "client" : step === "carroceria" ? "visual" : "carroceria")}
-              className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50 transition"
+              className="py-2.5 px-4 border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50 transition"
             >
               ← Volver
             </button>
@@ -701,13 +845,22 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients 
                 {step === "visual" ? "Carrocería →" : "Mecánica →"}
               </button>
             ) : (
-              <button
-                onClick={handleSave}
-                disabled={loading}
-                className="flex-1 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-sm disabled:opacity-50 transition"
-              >
-                {loading ? "Guardando..." : "✓ Guardar inspección"}
-              </button>
+              <div className="flex flex-col gap-2 flex-1">
+                <button
+                  onClick={() => handleSave("completed")}
+                  disabled={!!savingAs}
+                  className="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-sm disabled:opacity-50 transition"
+                >
+                  {savingAs === "complete" ? "Guardando..." : "✓ Guardar y completar"}
+                </button>
+                <button
+                  onClick={() => handleSave("draft")}
+                  disabled={!!savingAs}
+                  className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-medium disabled:opacity-50 transition"
+                >
+                  {savingAs === "draft" ? "Guardando..." : "💾 Guardar borrador"}
+                </button>
+              </div>
             )}
           </div>
         </div>

@@ -3,8 +3,10 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Plus, Trash2, Search, Eye, ChevronDown, ChevronUp, Car } from "lucide-react"
+import { Plus, Trash2, Search, Eye, ChevronDown, ChevronUp, Car, Sparkles, Loader2 } from "lucide-react"
 import BudgetPreview from "./budget-preview"
+import { VEHICLE_MAKES, VEHICLE_COLORS, getModels } from "@/lib/vehicle-data"
+import VehicleCombobox from "@/components/ui/vehicle-combobox"
 
 interface Client { id: string; full_name: string; rut?: string; phone?: string; email?: string; address?: string; city?: string }
 interface Inspection {
@@ -132,6 +134,64 @@ export default function BudgetForm({ clients, inspections, settings, initialBudg
   const [vigenciaDias, setVigenciaDias] = useState(init?.vigenciaDias ?? "30")
   const [descripcionServicio, setDescripcionServicio] = useState(init?.descripcionServicio ?? "")
   const [notasCotizacion, setNotasCotizacion] = useState(init?.notasCotizacion ?? "")
+  const [generatingDesc, setGeneratingDesc] = useState(false)
+  const [generatingNotes, setGeneratingNotes] = useState(false)
+
+  async function generateNotes() {
+    setGeneratingNotes(true)
+    try {
+      const res = await fetch("/api/ai/budget-notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: items.filter(i => i.descripcion?.trim()),
+          vehiculo,
+          descripcionServicio,
+          formaPago,
+          vigenciaDias,
+          cliente: clientMode === "registrado"
+            ? clients.find(c => c.id === clientId)?.full_name
+            : clienteLibre.nombre,
+          notasActuales: notasCotizacion,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "Error desconocido")
+      setNotasCotizacion(data.notes)
+      toast.success("Notas generadas con IA")
+    } catch (err: any) {
+      toast.error(err.message ?? "Error al generar notas")
+    } finally {
+      setGeneratingNotes(false)
+    }
+  }
+
+  async function generateDescription() {
+    const activeForAI = items.filter(i => i.descripcion?.trim())
+    if (!activeForAI.length) { toast.error("Agrega al menos un ítem con descripción"); return }
+    setGeneratingDesc(true)
+    try {
+      const res = await fetch("/api/ai/budget-description", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: activeForAI,
+          vehiculo,
+          cliente: clientMode === "registrado"
+            ? clients.find(c => c.id === clientId)?.full_name
+            : clienteLibre.nombre,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "Error desconocido")
+      setDescripcionServicio(data.description)
+      toast.success("Descripción generada con IA")
+    } catch (err: any) {
+      toast.error(err.message ?? "Error al generar descripción")
+    } finally {
+      setGeneratingDesc(false)
+    }
+  }
 
   useEffect(() => {
     if (!inspectionId) return
@@ -158,52 +218,30 @@ export default function BudgetForm({ clients, inspections, settings, initialBudg
     if (!patente) return
     setBuscandoVehiculo(true)
     try {
-      // 1. Buscar en Supabase (vehículos ya registrados)
       const res = await fetch(`/api/vehicles?patente=${patente}`)
-      const { vehicle: local } = await res.json()
+      const { vehicle, source, error } = await res.json()
 
-      if (local) {
+      if (vehicle) {
         setVehiculo({
-          patente:   local.patente   ?? patente,
-          marca:     local.marca     ?? "",
-          modelo:    local.modelo    ?? "",
-          anio:      local.anio != null ? String(local.anio) : "",
-          version:   local.version   ?? "",
-          vin:       local.vin       ?? "",
-          num_motor: local.num_motor ?? "",
-          color:     local.color     ?? "",
-          km:        "",
+          patente:   vehicle.patente   ?? patente,
+          marca:     vehicle.marca     ?? "",
+          modelo:    vehicle.modelo    ?? "",
+          anio:      vehicle.anio != null ? String(vehicle.anio) : "",
+          version:   vehicle.version   ?? "",
+          vin:       vehicle.vin       ?? "",
+          num_motor: vehicle.num_motor ?? "",
+          color:     vehicle.color     ?? "",
+          km:        vehicle.kilometraje ? String(vehicle.kilometraje) : "",
         })
         setShowVehicleManual(true)
-        toast.success("Vehículo encontrado en el sistema")
-        return
-      }
-
-      // 2. Llamar a Boostr directamente desde el browser
-      const { fetchBoostrPlate } = await import("@/lib/boostr")
-      const { vehicle: boostr, error: boostrError } = await fetchBoostrPlate(patente)
-
-      if (boostr) {
-        setVehiculo({
-          patente:   boostr.patente,
-          marca:     boostr.marca,
-          modelo:    boostr.modelo,
-          anio:      boostr.anio != null ? String(boostr.anio) : "",
-          version:   boostr.version,
-          vin:       boostr.vin,
-          num_motor: boostr.num_motor,
-          color:     boostr.color,
-          km:        "",
-        })
-        setShowVehicleManual(true)
-        toast.success("Vehículo encontrado en Boostr")
+        toast.success(source === "boostr" ? "Vehículo encontrado en Boostr" : "Vehículo encontrado en el sistema")
       } else {
         setVehiculo({ ...emptyVehiculo(), patente })
         setShowVehicleManual(true)
-        if (boostrError) toast.error(`Boostr: ${boostrError}`)
-        else toast.info("No encontrado — ingresa los datos manualmente")
+        if (error) toast.error(`No encontrado: ${error}`)
+        else toast.info("Patente no encontrada — ingresa los datos manualmente")
       }
-    } catch { toast.error("Error al buscar") }
+    } catch { toast.error("Error al buscar vehículo") }
     finally { setBuscandoVehiculo(false) }
   }
 
@@ -361,24 +399,69 @@ export default function BudgetForm({ clients, inspections, settings, initialBudg
         </div>
         {showVehicleManual && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {[
-              { key: "patente" as const, label: "Patente *", upper: true },
-              { key: "marca" as const, label: "Marca" },
-              { key: "modelo" as const, label: "Modelo" },
-              { key: "anio" as const, label: "Año" },
-              { key: "version" as const, label: "Versión" },
-              { key: "color" as const, label: "Color" },
-              { key: "km" as const, label: "KM actual" },
-              { key: "vin" as const, label: "VIN / Chasis", upper: true },
-              { key: "num_motor" as const, label: "N° Motor", upper: true },
-            ].map(f => (
-              <div key={f.key}>
-                <label className="block text-xs text-gray-500 mb-1">{f.label}</label>
-                <input type="text" value={vehiculo[f.key]}
-                  onChange={e => setVehiculo(p => ({ ...p, [f.key]: f.upper ? e.target.value.toUpperCase() : e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              </div>
-            ))}
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Patente *</label>
+              <input type="text" value={vehiculo.patente}
+                onChange={e => setVehiculo(p => ({ ...p, patente: e.target.value.toUpperCase() }))}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase font-mono" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Marca</label>
+              <VehicleCombobox
+                value={vehiculo.marca}
+                onChange={val => setVehiculo(p => ({ ...p, marca: val, modelo: "" }))}
+                options={VEHICLE_MAKES}
+                placeholder="Toyota, Ford..."
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Modelo</label>
+              <VehicleCombobox
+                value={vehiculo.modelo}
+                onChange={val => setVehiculo(p => ({ ...p, modelo: val }))}
+                options={getModels(vehiculo.marca)}
+                placeholder={vehiculo.marca ? "Seleccionar modelo..." : "Elige marca primero"}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Año</label>
+              <input type="text" value={vehiculo.anio}
+                onChange={e => setVehiculo(p => ({ ...p, anio: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Versión</label>
+              <input type="text" value={vehiculo.version}
+                onChange={e => setVehiculo(p => ({ ...p, version: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Color</label>
+              <VehicleCombobox
+                value={vehiculo.color}
+                onChange={val => setVehiculo(p => ({ ...p, color: val }))}
+                options={VEHICLE_COLORS}
+                placeholder="Blanco, Negro..."
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">KM actual</label>
+              <input type="text" value={vehiculo.km}
+                onChange={e => setVehiculo(p => ({ ...p, km: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">VIN / Chasis</label>
+              <input type="text" value={vehiculo.vin}
+                onChange={e => setVehiculo(p => ({ ...p, vin: e.target.value.toUpperCase() }))}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">N° Motor</label>
+              <input type="text" value={vehiculo.num_motor}
+                onChange={e => setVehiculo(p => ({ ...p, num_motor: e.target.value.toUpperCase() }))}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase" />
+            </div>
           </div>
         )}
         {vehiculo.patente && !showVehicleManual && (
@@ -556,7 +639,16 @@ export default function BudgetForm({ clients, inspections, settings, initialBudg
 
       {/* DESCRIPCIÓN */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-        <h3 className="font-semibold text-gray-800 mb-2">Descripción general del servicio</h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="font-semibold text-gray-800">Descripción general del servicio</h3>
+          <button type="button" onClick={generateDescription} disabled={generatingDesc}
+            className="flex items-center gap-1.5 text-xs bg-violet-100 hover:bg-violet-200 disabled:opacity-60 text-violet-700 px-3 py-1.5 rounded-lg font-medium transition">
+            {generatingDesc
+              ? <><Loader2 size={12} className="animate-spin" /> Generando...</>
+              : <><Sparkles size={12} /> Completar con IA</>
+            }
+          </button>
+        </div>
         <textarea value={descripcionServicio} onChange={e => setDescripcionServicio(e.target.value)} rows={4}
           placeholder="Describe los trabajos a realizar, recomendaciones adicionales..."
           className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
@@ -564,7 +656,16 @@ export default function BudgetForm({ clients, inspections, settings, initialBudg
 
       {/* NOTAS ADICIONALES */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-        <h3 className="font-semibold text-gray-800 mb-1">Notas / información adicional</h3>
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="font-semibold text-gray-800">Notas / información adicional</h3>
+          <button type="button" onClick={generateNotes} disabled={generatingNotes}
+            className="flex items-center gap-1.5 text-xs bg-violet-100 hover:bg-violet-200 disabled:opacity-60 text-violet-700 px-3 py-1.5 rounded-lg font-medium transition">
+            {generatingNotes
+              ? <><Loader2 size={12} className="animate-spin" /> Generando...</>
+              : <><Sparkles size={12} /> Completar con IA</>
+            }
+          </button>
+        </div>
         <p className="text-xs text-gray-400 mb-2">Aparece al final del PDF, después de los datos de pago. Ej: instrucciones al aceptar, contacto, condiciones.</p>
         <textarea value={notasCotizacion} onChange={e => setNotasCotizacion(e.target.value)} rows={3}
           placeholder="Ej: Si la cotización es aceptada, favor enviar correo a hugo@empresa.cl para coordinar..."
