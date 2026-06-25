@@ -442,16 +442,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // Title block (centro)
     doc.fillColor(C.hdrText).font("Helvetica-Bold").fontSize(15)
       .text("INFORME DE INSPECCIÓN VEHICULAR", 168, 8, { width: 256, align: "center" })
-    // Thin accent rule under title
-    doc.fillColor(C.hdrLine).rect(168 + 20, 28, 216, 1).fill()
     doc.fillColor(C.hdrSub).font("Helvetica").fontSize(8)
-      .text(`Fecha: ${fmtDate(ins.fecha_inspeccion)}`, 168, 32, { width: 256, align: "center" })
+      .text(`Fecha: ${fmtDate(ins.fecha_inspeccion)}`, 168, 38, { width: 256, align: "center" })
     doc.fillColor(C.accent).font("Helvetica-Bold").fontSize(8.5)
-      .text(`Inspector: ${ins.profiles?.full_name ?? "—"}`, 168, 44, { width: 256, align: "center" })
+      .text(`Inspector: ${ins.profiles?.full_name ?? "—"}`, 168, 48, { width: 256, align: "center" })
     doc.fillColor(C.hdrSub).font("Helvetica").fontSize(6.5)
-      .text(`N° ${id.slice(0, 8).toUpperCase()}`, 168, 57, { width: 256, align: "center" })
+      .text(`N° ${id.slice(0, 8).toUpperCase()}`, 168, 60, { width: 256, align: "center" })
     doc.fillColor(C.hdrSub).font("Helvetica").fontSize(6)
-      .text(`Patente: ${v.patente ?? "—"}  ·  ${v.marca ?? ""} ${v.modelo ?? ""}`, 168, 67, { width: 256, align: "center" })
+      .text(`Patente: ${v.patente ?? "—"}  ·  ${v.marca ?? ""} ${v.modelo ?? ""}`, 168, 69, { width: 256, align: "center" })
 
     // QR (fondo blanco para que se lea el QR oscuro sobre fondo celeste)
     if (qrBuf) {
