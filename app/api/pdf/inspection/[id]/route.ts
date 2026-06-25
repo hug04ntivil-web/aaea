@@ -531,10 +531,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const scoreBaseY = y + 4  // margen superior
 
     const scores = [
-      { label: "NOTA FINAL",  nota: ins.nota_final,      big: true  },
       { label: "Visual",      nota: ins.nota_visual,     big: false },
       { label: "Carrocería",  nota: ins.nota_carroceria, big: false },
       { label: "Mecánica",    nota: ins.nota_mecanica,   big: false },
+      { label: "NOTA FINAL",  nota: ins.nota_final,      big: true  },
     ]
 
     scores.forEach(s => {
@@ -568,15 +568,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       doc.fillColor("#ffffff99").font("Helvetica").fontSize(s.big ? 6 : 5.5)
         .text("/7.0", sx, sy + (s.big ? 18 : 14), { width: bw, align: "center" })
 
-      // Porcentaje
+      // Porcentaje — centrado en el espacio entre la banda y la barra de progreso
+      const barY2  = sy + bh - (s.big ? 13 : 11)
+      const pctH   = s.big ? 14 : 10   // altura aproximada del texto en pts
+      const pctY   = Math.round(sy + stripeH + (barY2 - sy - stripeH - pctH) / 2)
       doc.fillColor(col).font("Helvetica-Bold").fontSize(s.big ? 19 : 13)
-        .text(`${Math.round((nota / 7) * 100)}%`, sx, sy + stripeH, { width: bw, align: "center" })
+        .text(`${Math.round((nota / 7) * 100)}%`, sx, pctY, { width: bw, align: "center" })
 
       // Barra de progreso
       const bx = sx + 6, bbarW = bw - 12
-      const barY = sy + bh - (s.big ? 13 : 11)
-      doc.fillColor("#0000001a").roundedRect(bx, barY, bbarW, 4, 2).fill()
-      doc.fillColor(colMid).roundedRect(bx, barY, bbarW * Math.min(nota / 7, 1), 4, 2).fill()
+      doc.fillColor("#0000001a").roundedRect(bx, barY2, bbarW, 4, 2).fill()
+      doc.fillColor(colMid).roundedRect(bx, barY2, bbarW * Math.min(nota / 7, 1), 4, 2).fill()
 
       // Etiqueta
       doc.fillColor(col).font("Helvetica-Bold").fontSize(s.big ? 7 : 5.5)
