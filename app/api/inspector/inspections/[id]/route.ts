@@ -13,7 +13,7 @@ async function getInspectorDraft(supabase: any, id: string, userId: string) {
   return data
 }
 
-// DELETE — el inspector borra su propio borrador
+// DELETE — el inspector borra cualquiera de sus propias inspecciones
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
@@ -22,7 +22,6 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 
   const draft = await getInspectorDraft(supabase, id, user.id)
   if (!draft) return NextResponse.json({ error: "No encontrado" }, { status: 404 })
-  if (draft.status !== "draft") return NextResponse.json({ error: "Solo se pueden eliminar borradores" }, { status: 403 })
 
   const { error } = await supabase.from("inspections").delete().eq("id", id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Sparkles, Loader2, Copy, Check, RefreshCw } from "lucide-react"
+import { Sparkles, Loader2, Copy, Check } from "lucide-react"
 import { toast } from "sonner"
 
 type Style = "compacto" | "estandar" | "detallado"

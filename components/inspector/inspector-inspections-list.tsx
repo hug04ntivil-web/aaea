@@ -2,8 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { Trash2, Pencil, CheckCircle, AlertTriangle } from "lucide-react"
+import { Trash2, Pencil, AlertTriangle } from "lucide-react"
 import { formatDate } from "@/lib/utils"
 import { toast } from "sonner"
 
@@ -21,10 +20,10 @@ interface Props {
 }
 
 export default function InspectorInspectionsList({ inspections: initial }: Props) {
-  const router = useRouter()
   const [inspections, setInspections] = useState(initial)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const deleteTarget = inspections.find(i => i.id === deleteId)
 
   async function confirmDelete() {
     if (!deleteId) return
@@ -36,7 +35,7 @@ export default function InspectorInspectionsList({ inspections: initial }: Props
         throw new Error(d.error ?? "Error al eliminar")
       }
       setInspections(prev => prev.filter(i => i.id !== deleteId))
-      toast.success("Borrador eliminado")
+      toast.success("Inspección eliminada")
     } catch (err: any) {
       toast.error(err.message)
     } finally {
@@ -53,9 +52,21 @@ export default function InspectorInspectionsList({ inspections: initial }: Props
           <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
             <div className="flex items-center gap-3 mb-3">
               <AlertTriangle size={20} className="text-red-500 flex-shrink-0" />
-              <h3 className="font-bold text-gray-800">¿Eliminar borrador?</h3>
+              <h3 className="font-bold text-gray-800">
+                {deleteTarget?.status === "draft" ? "¿Eliminar borrador?" : "⚠ Eliminar inspección completa"}
+              </h3>
             </div>
-            <p className="text-sm text-gray-500 mb-5">Esta acción no se puede deshacer. Se eliminarán todos los datos de este borrador.</p>
+            {deleteTarget?.status !== "draft" && (
+              <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3 text-xs text-red-700">
+                Esta inspección ya está <strong>completa</strong>. Al eliminarla se perderán el informe, las notas y todos los ítems evaluados de forma permanente.
+              </div>
+            )}
+            <p className="text-sm text-gray-500 mb-5">
+              {deleteTarget?.vehicles?.patente && (
+                <span className="font-semibold text-gray-700">{deleteTarget.vehicles.patente} · {deleteTarget.vehicles.marca} {deleteTarget.vehicles.modelo}</span>
+              )}
+              <br />Esta acción no se puede deshacer.
+            </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setDeleteId(null)}
@@ -110,25 +121,22 @@ export default function InspectorInspectionsList({ inspections: initial }: Props
                     </span>
 
                     {isDraft && (
-                      <>
-                        {/* Continuar/Editar */}
-                        <Link
-                          href={`/inspector/inspections/${ins.id}/edit`}
-                          className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition"
-                          title="Continuar borrador"
-                        >
-                          <Pencil size={15} />
-                        </Link>
-                        {/* Eliminar */}
-                        <button
-                          onClick={() => setDeleteId(ins.id)}
-                          className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition"
-                          title="Eliminar borrador"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </>
+                      <Link
+                        href={`/inspector/inspections/${ins.id}/edit`}
+                        className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition"
+                        title="Continuar borrador"
+                      >
+                        <Pencil size={15} />
+                      </Link>
                     )}
+
+                    <button
+                      onClick={() => setDeleteId(ins.id)}
+                      className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition"
+                      title="Eliminar inspección"
+                    >
+                      <Trash2 size={15} />
+                    </button>
                   </div>
                 </div>
               )
