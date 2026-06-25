@@ -5,22 +5,28 @@ import QRCode from "qrcode"
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const C = {
-  navy:    "#0f172a",
-  brand:   "#1e3a5f",
-  accent:  "#2563eb",
-  good:    "#16a34a",
-  warn:    "#d97706",
-  bad:     "#dc2626",
-  muted:   "#64748b",
-  border:  "#cbd5e1",
-  light:   "#f8fafc",
-  mid:     "#e2e8f0",
-  white:   "#ffffff",
-  text:    "#1e293b",
-  glass:   "#bfdbfe",
-  tire:    "#1e293b",
-  unset:   "#94a3b8",
+  navy:   "#0f172a",
+  brand:  "#1e3a5f",
+  accent: "#3b82f6",
+  good:   "#16a34a",
+  warn:   "#d97706",
+  bad:    "#dc2626",
+  muted:  "#64748b",
+  border: "#cbd5e1",
+  light:  "#f8fafc",
+  mid:    "#e2e8f0",
+  white:  "#ffffff",
+  text:   "#1e293b",
+  glass:  "#dbeafe",
+  tire:   "#1e293b",
 }
+
+// A4 page dimensions
+const PW = 595   // page width
+const PH = 842   // page height
+const ML = 28    // margin left
+const MR = 28    // margin right
+const CW = PW - ML - MR  // content width = 539
 
 function formatDate(d: string) {
   if (!d) return "—"
@@ -31,14 +37,18 @@ function estadoColor(estado: string): string {
   if (["Bueno","Sin Daño","Normal","Funciona","A nivel","No Presenta","No Encendido"].includes(estado)) return C.good
   if (["Con Daño","Regular"].includes(estado)) return C.warn
   if (["Malo","Anormal","No Funciona","Bajo nivel","Encendido","Presenta"].includes(estado)) return C.bad
-  return C.unset
+  return "#94a3b8"
 }
 
-function isBadEstado(e: string) {
+function isBad(e: string) {
   return ["Con Daño","Malo","Anormal","No Funciona","Bajo nivel","Presenta","Encendido"].includes(e)
 }
 
-// ─── Zone → item_key mapping ──────────────────────────────────────────────────
+function isWarn(e: string) {
+  return ["Regular"].includes(e)
+}
+
+// ─── Zone mapping ─────────────────────────────────────────────────────────────
 const ZONE_MAP: Record<string, string> = {
   capot: "hood", mascara: "hood", parabrisas_del: "windshield_f",
   focos_opticos: "front_bumper", parachoques_del: "front_bumper",
@@ -57,171 +67,189 @@ function calcZoneColors(items: any[]): Record<string, string> {
   items?.forEach(item => {
     const zone = ZONE_MAP[item.item_key]
     if (!zone) return
-    const lvl = isBadEstado(item.estado) ? 2 : ["Con Daño","Regular"].includes(item.estado) ? 1 : 0
+    const lvl = isBad(item.estado) ? 2 : isWarn(item.estado) ? 1 : 0
     if ((zones[zone] ?? -1) < lvl) zones[zone] = lvl
   })
   const map: Record<string, string> = {}
   Object.entries(zones).forEach(([z, lvl]) => {
-    map[z] = lvl === 2 ? C.bad : lvl === 1 ? C.warn : C.good
+    if (lvl > 0) map[z] = lvl === 2 ? C.bad : C.warn
   })
   return map
 }
 
-// ─── Car top-down diagram ─────────────────────────────────────────────────────
+// ─── Car top-down diagram (neutral body, colored damage dots) ─────────────────
 function drawCarTopDown(doc: PDFKit.PDFDocument, ox: number, oy: number, zones: Record<string, string>) {
-  const W = 108, H = 200
+  const W = 100
+  const H = 162
   const cx = ox + W / 2
-  const z = (k: string) => zones[k] ?? C.unset
+
+  const BODY   = "#dde3ea"
+  const DBODY  = "#c5cdd6"
+  const GLASS2 = "#d4e6f8"
+  const DARK   = "#374151"
+  const STROKE = "#5a6879"
 
   // Drop shadow
-  doc.fillColor("#00000018").roundedRect(ox + 4, oy + 4, W, H, 14).fill()
+  doc.fillColor("#00000014").roundedRect(ox + 3, oy + 5, W, H, 12).fill()
 
-  // ── Outer silhouette (body + doors) ─────────────────────────────────────────
-  // Drawn as a smooth body shape using bezier curves
-  doc.save()
-  doc.fillColor("#374151").strokeColor(C.navy).lineWidth(1.2)
-  doc.moveTo(cx, oy + 2)
-    .bezierCurveTo(cx + W * 0.34, oy + 2,  cx + W * 0.50, oy + 14, cx + W * 0.50, oy + 28)
-    .bezierCurveTo(cx + W * 0.50, oy + 38, cx + W * 0.48, oy + 44, cx + W * 0.46, oy + 52)
-    .lineTo(cx + W * 0.46, oy + 148)
-    .bezierCurveTo(cx + W * 0.48, oy + 156, cx + W * 0.50, oy + 162, cx + W * 0.50, oy + 172)
-    .bezierCurveTo(cx + W * 0.50, oy + 186, cx + W * 0.34, oy + H - 2, cx, oy + H - 2)
-    .bezierCurveTo(cx - W * 0.34, oy + H - 2, cx - W * 0.50, oy + 186, cx - W * 0.50, oy + 172)
-    .bezierCurveTo(cx - W * 0.50, oy + 162, cx - W * 0.48, oy + 156, cx - W * 0.46, oy + 148)
-    .lineTo(cx - W * 0.46, oy + 52)
-    .bezierCurveTo(cx - W * 0.48, oy + 44, cx - W * 0.50, oy + 38, cx - W * 0.50, oy + 28)
-    .bezierCurveTo(cx - W * 0.50, oy + 14, cx - W * 0.34, oy + 2, cx, oy + 2)
+  // ── Outer body silhouette ──────────────────────────────────────────────────
+  doc.fillColor(BODY).strokeColor(STROKE).lineWidth(1.2)
+  doc.moveTo(cx, oy + 3)
+    .bezierCurveTo(cx + W * 0.30, oy + 3,  cx + W * 0.46, oy + 13, cx + W * 0.46, oy + 26)
+    .bezierCurveTo(cx + W * 0.47, oy + 34, cx + W * 0.47, oy + 40, cx + W * 0.45, oy + 48)
+    .lineTo(cx + W * 0.45, oy + 114)
+    .bezierCurveTo(cx + W * 0.47, oy + 120, cx + W * 0.47, oy + 126, cx + W * 0.46, oy + 136)
+    .bezierCurveTo(cx + W * 0.46, oy + 148, cx + W * 0.30, oy + H - 3, cx, oy + H - 3)
+    .bezierCurveTo(cx - W * 0.30, oy + H - 3, cx - W * 0.46, oy + 148, cx - W * 0.46, oy + 136)
+    .bezierCurveTo(cx - W * 0.47, oy + 126, cx - W * 0.47, oy + 120, cx - W * 0.45, oy + 114)
+    .lineTo(cx - W * 0.45, oy + 48)
+    .bezierCurveTo(cx - W * 0.47, oy + 40, cx - W * 0.47, oy + 34, cx - W * 0.46, oy + 26)
+    .bezierCurveTo(cx - W * 0.46, oy + 13, cx - W * 0.30, oy + 3, cx, oy + 3)
     .fillAndStroke()
-  doc.restore()
 
-  // ── Interior zones (drawn inside silhouette) ─────────────────────────────────
-
-  // Front bumper
-  doc.save()
-  doc.fillColor(z("front_bumper")).strokeColor(C.navy).lineWidth(0.8)
-  doc.moveTo(cx, oy + 4)
-    .bezierCurveTo(cx + W * 0.30, oy + 4, cx + W * 0.44, oy + 12, cx + W * 0.44, oy + 22)
-    .lineTo(cx - W * 0.44, oy + 22)
-    .bezierCurveTo(cx - W * 0.44, oy + 12, cx - W * 0.30, oy + 4, cx, oy + 4)
-    .fillAndStroke()
-  doc.restore()
+  // Front bumper strip
+  doc.fillColor(DBODY).strokeColor(STROKE).lineWidth(0.6)
+  doc.moveTo(cx - W * 0.28, oy + 5)
+    .bezierCurveTo(cx - W * 0.43, oy + 9, cx - W * 0.43, oy + 18, cx - W * 0.41, oy + 22)
+    .lineTo(cx + W * 0.41, oy + 22)
+    .bezierCurveTo(cx + W * 0.43, oy + 18, cx + W * 0.43, oy + 9, cx + W * 0.28, oy + 5)
+    .closePath().fillAndStroke()
 
   // Hood
-  doc.fillColor(z("hood")).strokeColor(C.navy).lineWidth(0.8)
-  doc.rect(cx - W * 0.44, oy + 22, W * 0.88, 38).fillAndStroke()
+  doc.fillColor(BODY).strokeColor(STROKE).lineWidth(0.5)
+  doc.rect(cx - W * 0.41, oy + 22, W * 0.82, 26).fillAndStroke()
 
-  // Front windshield (glass tint)
-  const fwc = z("windshield_f") !== C.unset ? z("windshield_f") : C.glass
-  doc.fillColor(fwc).strokeColor(C.navy).lineWidth(0.8)
-  doc.rect(cx - W * 0.36, oy + 60, W * 0.72, 16).fillAndStroke()
+  // Grille detail
+  doc.fillColor(DARK).rect(cx - W * 0.18, oy + 7, W * 0.36, 8).fill()
+  doc.fillColor("#60a5fa").rect(cx - W * 0.08, oy + 7, W * 0.16, 8).fill()  // badge
 
-  // Left side panels
-  doc.fillColor(z("left")).strokeColor(C.navy).lineWidth(0.8)
-  doc.rect(cx - W * 0.46, oy + 60, W * 0.1, 80).fillAndStroke()
+  // Front windshield
+  doc.fillColor(GLASS2).strokeColor(STROKE).lineWidth(0.5)
+  doc.roundedRect(cx - W * 0.32, oy + 48, W * 0.64, 13, 2).fillAndStroke()
 
-  // Right side panels
-  doc.fillColor(z("right")).strokeColor(C.navy).lineWidth(0.8)
-  doc.rect(cx + W * 0.36, oy + 60, W * 0.1, 80).fillAndStroke()
+  // Left door strip
+  doc.fillColor(DBODY).strokeColor(STROKE).lineWidth(0.5)
+  doc.rect(cx - W * 0.45, oy + 48, W * 0.055, 60).fillAndStroke()
 
-  // Roof / cabin interior
-  const rc = z("roof") !== C.unset ? z("roof") : "#e2e8f0"
-  doc.fillColor(rc).strokeColor(C.navy).lineWidth(0.8)
-  doc.rect(cx - W * 0.36, oy + 76, W * 0.72, 48).fillAndStroke()
+  // Right door strip
+  doc.rect(cx + W * 0.395, oy + 48, W * 0.055, 60).fillAndStroke()
+
+  // Cabin / roof area
+  doc.fillColor("#e4ebf2").strokeColor(STROKE).lineWidth(0.5)
+  doc.rect(cx - W * 0.32, oy + 61, W * 0.64, 40).fillAndStroke()
 
   // Rear windshield
-  const rwc = z("windshield_r") !== C.unset ? z("windshield_r") : C.glass
-  doc.fillColor(rwc).strokeColor(C.navy).lineWidth(0.8)
-  doc.rect(cx - W * 0.36, oy + 124, W * 0.72, 16).fillAndStroke()
+  doc.fillColor(GLASS2).strokeColor(STROKE).lineWidth(0.5)
+  doc.roundedRect(cx - W * 0.32, oy + 101, W * 0.64, 13, 2).fillAndStroke()
 
   // Trunk
-  doc.fillColor(z("trunk")).strokeColor(C.navy).lineWidth(0.8)
-  doc.rect(cx - W * 0.44, oy + 140, W * 0.88, 36).fillAndStroke()
+  doc.fillColor(BODY).strokeColor(STROKE).lineWidth(0.5)
+  doc.rect(cx - W * 0.41, oy + 114, W * 0.82, 24).fillAndStroke()
 
-  // Rear bumper
-  doc.save()
-  doc.fillColor(z("rear_bumper")).strokeColor(C.navy).lineWidth(0.8)
-  doc.moveTo(cx - W * 0.44, oy + 176)
-    .lineTo(cx + W * 0.44, oy + 176)
-    .bezierCurveTo(cx + W * 0.44, oy + 192, cx + W * 0.30, oy + H - 4, cx, oy + H - 4)
-    .bezierCurveTo(cx - W * 0.30, oy + H - 4, cx - W * 0.44, oy + 192, cx - W * 0.44, oy + 176)
-    .fillAndStroke()
-  doc.restore()
+  // Rear bumper strip
+  doc.fillColor(DBODY).strokeColor(STROKE).lineWidth(0.6)
+  doc.moveTo(cx - W * 0.41, oy + 138)
+    .lineTo(cx + W * 0.41, oy + 138)
+    .bezierCurveTo(cx + W * 0.43, oy + 144, cx + W * 0.43, oy + 152, cx + W * 0.28, oy + H - 5)
+    .bezierCurveTo(cx + W * 0.10, oy + H - 3, cx - W * 0.10, oy + H - 3, cx - W * 0.28, oy + H - 5)
+    .bezierCurveTo(cx - W * 0.43, oy + 152, cx - W * 0.43, oy + 144, cx - W * 0.41, oy + 138)
+    .closePath().fillAndStroke()
 
-  // ── Wheels ───────────────────────────────────────────────────────────────────
+  // ── Wheels ─────────────────────────────────────────────────────────────────
   const wheels = [
-    { x: ox - 14, y: oy + 24, zone: "wheel_fl" },
-    { x: ox + W + 2, y: oy + 24, zone: "wheel_fr" },
-    { x: ox - 14, y: oy + 140, zone: "wheel_rl" },
-    { x: ox + W + 2, y: oy + 140, zone: "wheel_rr" },
+    { wx: ox - 12, wy: oy + 18, zone: "wheel_fl" },
+    { wx: ox + W + 2, wy: oy + 18, zone: "wheel_fr" },
+    { wx: ox - 12, wy: oy + 112, zone: "wheel_rl" },
+    { wx: ox + W + 2, wy: oy + 112, zone: "wheel_rr" },
   ]
   wheels.forEach(w => {
-    const wc = z(w.zone)
-    // Tire
-    doc.fillColor(C.tire).strokeColor(C.navy).lineWidth(1.2)
-    doc.roundedRect(w.x, w.y, 12, 32, 3).fillAndStroke()
-    // Rim
-    doc.fillColor("#94a3b8").roundedRect(w.x + 2, w.y + 4, 8, 24, 2).fill()
-    // Status ring if issue
-    if (wc !== C.unset) {
-      doc.strokeColor(wc).lineWidth(2.5)
-      doc.roundedRect(w.x, w.y, 12, 32, 3).stroke()
+    const wc = zones[w.zone]
+    doc.fillColor(DARK).strokeColor("#0f172a").lineWidth(1)
+    doc.roundedRect(w.wx, w.wy, 10, 28, 3).fillAndStroke()
+    doc.fillColor("#6b7280").roundedRect(w.wx + 2, w.wy + 5, 6, 18, 1.5).fill()
+    if (wc) {
+      doc.strokeColor(wc).lineWidth(2.5).roundedRect(w.wx, w.wy, 10, 28, 3).stroke()
       doc.lineWidth(1)
     }
   })
 
-  // ── Labels ────────────────────────────────────────────────────────────────────
-  doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(4.5)
-  doc.text("FRENTE", cx - W * 0.44, oy + 28, { width: W * 0.88, align: "center" })
-  doc.text("TECHO", cx - W * 0.36, oy + 96, { width: W * 0.72, align: "center" })
-  doc.text("MALETERO", cx - W * 0.44, oy + 152, { width: W * 0.88, align: "center" })
+  // ── Damage dots (ONLY for zones with issues) ──────────────────────────────
+  const dotPos: Record<string, [number, number]> = {
+    "front_bumper": [cx,            oy + 12],
+    "hood":         [cx,            oy + 35],
+    "windshield_f": [cx,            oy + 55],
+    "left":         [cx - W * 0.42, oy + 78],
+    "right":        [cx + W * 0.42, oy + 78],
+    "roof":         [cx,            oy + 81],
+    "windshield_r": [cx,            oy + 107],
+    "trunk":        [cx,            oy + 126],
+    "rear_bumper":  [cx,            oy + 145],
+  }
 
-  // Arrow indicating front
-  doc.fillColor(C.accent)
-  doc.polygon([cx - 5, oy - 10], [cx + 5, oy - 10], [cx, oy]).fill()
+  Object.entries(zones).forEach(([zone, color]) => {
+    const p = dotPos[zone]
+    if (!p) return
+    // White halo
+    doc.fillColor("#ffffff").circle(p[0], p[1], 6).fill()
+    // Colored fill
+    doc.fillColor(color).circle(p[0], p[1], 5).fill()
+    // Dark border
+    doc.strokeColor("#00000040").lineWidth(0.5).circle(p[0], p[1], 5).stroke()
+  })
+
+  // ── Direction arrow ────────────────────────────────────────────────────────
+  doc.fillColor(C.accent).polygon([cx - 4, oy - 8], [cx + 4, oy - 8], [cx, oy]).fill()
   doc.fillColor(C.muted).font("Helvetica").fontSize(5)
-  doc.text("VISTA SUPERIOR", ox, oy - 18, { width: W, align: "center" })
+    .text("FRENTE", ox, oy - 16, { width: W, align: "center" })
+  doc.font("Helvetica").fontSize(5)
+    .text("POSTERIOR", ox, oy + H + 3, { width: W, align: "center" })
 }
 
 // ─── Legend ───────────────────────────────────────────────────────────────────
 function drawLegend(doc: PDFKit.PDFDocument, x: number, y: number) {
-  const items = [
-    ["Sin daño",     C.good],
-    ["Advertencia",  C.warn],
-    ["Con daño",     C.bad],
-    ["Sin evaluar",  C.unset],
+  const items: [string, string][] = [
+    ["Con daño",    C.bad],
+    ["Advertencia", C.warn],
   ]
-  doc.font("Helvetica-Bold").fontSize(6).fillColor(C.text).text("LEYENDA:", x, y)
-  y += 9
+  doc.font("Helvetica-Bold").fontSize(6).fillColor(C.text).text("MARCADORES:", x, y)
+  y += 8
   items.forEach(([label, color]) => {
-    doc.fillColor(color as string).roundedRect(x, y, 9, 7, 1.5).fill()
-    doc.strokeColor(C.border).lineWidth(0.5).roundedRect(x, y, 9, 7, 1.5).stroke()
-    doc.fillColor(C.muted).font("Helvetica").fontSize(5.5).text(label as string, x + 12, y + 0.5)
-    y += 10
+    doc.fillColor("#ffffff").circle(x + 5, y + 4, 5).fill()
+    doc.fillColor(color).circle(x + 5, y + 4, 4).fill()
+    doc.strokeColor("#00000030").lineWidth(0.5).circle(x + 5, y + 4, 4).stroke()
+    doc.fillColor(C.muted).font("Helvetica").fontSize(5.5).text(label, x + 13, y + 1)
+    y += 11
   })
+  // Wheel border indicator
+  doc.fillColor("#ffffff").roundedRect(x, y, 10, 7, 2).fill()
+  doc.strokeColor(C.bad).lineWidth(2).roundedRect(x, y, 10, 7, 2).stroke()
+  doc.fillColor(C.muted).font("Helvetica").fontSize(5.5).text("Neumático", x + 13, y + 1)
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function sectionBar(doc: PDFKit.PDFDocument, label: string, x: number, y: number, w: number): number {
-  doc.fillColor(C.brand).rect(x, y, w, 14).fill()
-  doc.fillColor(C.white).font("Helvetica-Bold").fontSize(7).text(label, x + 8, y + 3.5)
-  return y + 18
+function sectionBar(doc: PDFKit.PDFDocument, label: string, y: number, w = CW): number {
+  doc.fillColor(C.brand).rect(ML, y, w, 13).fill()
+  doc.fillColor(C.white).font("Helvetica-Bold").fontSize(7).text(label, ML + 7, y + 3)
+  return y + 16
 }
 
-function miniHeader(doc: PDFKit.PDFDocument, title: string, subtitle: string, logoBuf: Buffer | null, companyName: string) {
-  doc.fillColor(C.navy).rect(0, 0, 595, 32).fill()
-  doc.fillColor(C.accent).rect(0, 32, 595, 3).fill()
+function miniHeader(doc: PDFKit.PDFDocument, title: string, sub: string, logoBuf: Buffer | null) {
+  doc.fillColor(C.navy).rect(0, 0, PW, 30).fill()
+  doc.fillColor(C.accent).rect(0, 30, PW, 3).fill()
   if (logoBuf) {
-    try { doc.image(logoBuf, 10, 4, { height: 24, fit: [80, 24] }) } catch { }
+    try { doc.image(logoBuf, ML, 4, { height: 22, fit: [80, 22] }) } catch { }
   }
-  doc.fillColor(C.white).font("Helvetica-Bold").fontSize(9).text(title, 100, 7, { width: 390, align: "center" })
-  doc.font("Helvetica").fontSize(7).fillColor("#94a3b8").text(subtitle, 100, 19, { width: 390, align: "center" })
+  doc.fillColor(C.white).font("Helvetica-Bold").fontSize(8.5)
+    .text(title, 110, 7, { width: 370, align: "center" })
+  doc.fillColor("#94a3b8").font("Helvetica").fontSize(6.5)
+    .text(sub, 110, 18, { width: 370, align: "center" })
 }
 
 function pageFooter(doc: PDFKit.PDFDocument, companyName: string, page: number) {
-  doc.fillColor(C.navy).rect(0, 821, 595, 21).fill()
+  doc.fillColor(C.brand).rect(0, PH - 20, PW, 20).fill()
   doc.fillColor("#64748b").font("Helvetica").fontSize(6)
-    .text(`${companyName} · Sistema de Inspección Vehicular · www.aaea.cl`, 14, 826, { width: 380 })
-    .text(`Pág. ${page}`, 14, 826, { width: 566, align: "right" })
+    .text(`${companyName} · Sistema de Inspección Vehicular`, ML, PH - 13, { width: 360 })
+    .text(`Página ${page}`, ML, PH - 13, { width: CW, align: "right" })
 }
 
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
@@ -254,12 +282,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const items = inspItems ?? []
   const zoneColors = calcZoneColors(items)
-  const v = ins.vehicles ?? {}
-  const cl = ins.clients ?? {}
+  const v   = ins.vehicles ?? {}
+  const cl  = ins.clients  ?? {}
 
-  const badItems = items.filter(i => isBadEstado(i.estado))
-  const warnItems = items.filter(i => ["Con Daño","Regular"].includes(i.estado))
-  const allDefects = [...badItems, ...warnItems.filter(i => !badItems.includes(i))]
+  const badItems   = items.filter(i => isBad(i.estado))
+  const warnItems  = items.filter(i => isWarn(i.estado))
+  const allDefects = [...badItems, ...warnItems]
 
   // QR
   const publicUrl = ins.public_token ? `${baseUrl}/p/${ins.public_token}` : null
@@ -277,9 +305,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   // Photos
-  const photoBuffers: Buffer[] = []
+  const photoBufs: Buffer[] = []
   for (const url of (ins.photos ?? []) as string[]) {
-    try { const r = await fetch(url); if (r.ok) photoBuffers.push(Buffer.from(await r.arrayBuffer())) } catch { }
+    try { const r = await fetch(url); if (r.ok) photoBufs.push(Buffer.from(await r.arrayBuffer())) } catch { }
   }
 
   const doc = new PDFDocument({ margin: 0, size: "A4", autoFirstPage: true })
@@ -289,62 +317,57 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   await new Promise<void>(resolve => {
     doc.on("end", resolve)
 
-    const ML = 30   // margin left
-    const CW = 535  // content width
+    // ══════════════════════════════════════════════════════════════════════════
+    // PÁGINA 1 — RESUMEN
+    // ══════════════════════════════════════════════════════════════════════════
 
-    // ════════════════════════════════════════════════════════════════════════════
-    // PAGE 1
-    // ════════════════════════════════════════════════════════════════════════════
-
-    // ── Header ──────────────────────────────────────────────────────────────────
-    // Navy background
-    doc.fillColor(C.navy).rect(0, 0, 595, 78).fill()
-    // Blue accent stripe at bottom of header
-    doc.fillColor(C.accent).rect(0, 74, 595, 4).fill()
-    // Subtle diagonal pattern in header
-    doc.fillColor("#ffffff08")
-    for (let i = -10; i < 620; i += 18) {
-      doc.moveTo(i, 0).lineTo(i + 80, 78).stroke()
+    // ── Header ────────────────────────────────────────────────────────────────
+    doc.fillColor(C.navy).rect(0, 0, PW, 76).fill()
+    // Subtle stripe pattern
+    doc.save()
+    doc.fillColor("#ffffff06")
+    for (let xi = -20; xi < PW + 20; xi += 16) {
+      doc.moveTo(xi, 0).lineTo(xi + 76, 76).lineWidth(8).stroke()
     }
+    doc.restore()
+    doc.fillColor(C.accent).rect(0, 76, PW, 3).fill()
 
-    // Logo area (left)
+    // Logo (left)
     if (logoBuf) {
-      try { doc.image(logoBuf, ML, 14, { height: 46, fit: [130, 46] }) }
+      try { doc.image(logoBuf, ML, 12, { height: 50, fit: [140, 50] }) }
       catch {
-        doc.fillColor(C.white).font("Helvetica-Bold").fontSize(13).text(companyName, ML, 20)
+        doc.fillColor(C.white).font("Helvetica-Bold").fontSize(12).text(companyName, ML, 18)
       }
     } else {
-      // Company name as text logo
-      doc.fillColor(C.white).font("Helvetica-Bold").fontSize(13).text(companyName, ML, 16)
-      doc.fillColor("#94a3b8").font("Helvetica").fontSize(7)
-      if (companyRut) doc.text(`RUT: ${companyRut}`, ML, 32)
-      if (companyPhone) doc.text(`Tel: ${companyPhone}`, ML, 42)
-      if (companyAddress) doc.text(companyAddress, ML, 52)
+      doc.fillColor(C.white).font("Helvetica-Bold").fontSize(12).text(companyName, ML, 14)
+      if (companyRut)     doc.fillColor("#94a3b8").font("Helvetica").fontSize(7).text(`RUT: ${companyRut}`, ML, 30)
+      if (companyPhone)   doc.fillColor("#94a3b8").font("Helvetica").fontSize(7).text(`Tel: ${companyPhone}`, ML, 40)
+      if (companyAddress) doc.fillColor("#94a3b8").font("Helvetica").fontSize(6.5).text(companyAddress, ML, 50, { width: 160 })
     }
 
     // Title (center)
-    doc.fillColor(C.white).font("Helvetica-Bold").fontSize(14)
-      .text("INFORME DE INSPECCIÓN VEHICULAR", 160, 14, { width: 270, align: "center" })
+    doc.fillColor(C.white).font("Helvetica-Bold").fontSize(14.5)
+      .text("INFORME DE INSPECCIÓN VEHICULAR", 170, 12, { width: 255, align: "center" })
     doc.fillColor("#94a3b8").font("Helvetica").fontSize(7.5)
-      .text(`Fecha: ${formatDate(ins.fecha_inspeccion)}`, 160, 34, { width: 270, align: "center" })
+      .text(`Fecha: ${formatDate(ins.fecha_inspeccion)}`, 170, 32, { width: 255, align: "center" })
     doc.fillColor("#7dd3fc").font("Helvetica-Bold").fontSize(7.5)
-      .text(`Inspector: ${ins.profiles?.full_name ?? "—"}`, 160, 46, { width: 270, align: "center" })
-    doc.fillColor("#64748b").font("Helvetica").fontSize(6.5)
-      .text(`N° Inspección: ${id.slice(0, 8).toUpperCase()}`, 160, 58, { width: 270, align: "center" })
+      .text(`Inspector: ${ins.profiles?.full_name ?? "—"}`, 170, 44, { width: 255, align: "center" })
+    doc.fillColor("#475569").font("Helvetica").fontSize(6.5)
+      .text(`N° ${id.slice(0, 8).toUpperCase()}`, 170, 56, { width: 255, align: "center" })
 
     // QR (right)
     if (qrBuf) {
       try {
-        doc.image(qrBuf, 525, 4, { width: 64, height: 64 })
+        doc.image(qrBuf, PW - 80, 4, { width: 66, height: 66 })
         doc.fillColor("#475569").font("Helvetica").fontSize(5)
-          .text("Ver informe online", 523, 69, { width: 66, align: "center" })
+          .text("Ver informe online", PW - 80, 71, { width: 66, align: "center" })
       } catch { }
     }
 
-    let y = 82
+    let y = 84
 
-    // ── Vehicle data ─────────────────────────────────────────────────────────────
-    y = sectionBar(doc, "DATOS DEL VEHÍCULO", ML, y, CW)
+    // ── Datos del vehículo ────────────────────────────────────────────────────
+    y = sectionBar(doc, "DATOS DEL VEHÍCULO", y)
 
     const vFields: [string, string][] = [
       ["Patente",      v.patente ?? "—"],
@@ -361,21 +384,23 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       ["N° Motor",     v.num_motor ?? "—"],
     ]
 
-    const cols4 = 4
-    const colW4 = CW / cols4
-    vFields.forEach(([label, val], i) => {
-      const col = i % cols4
-      const row = Math.floor(i / cols4)
-      const fx = ML + col * colW4
-      const fy = y + row * 24
-      if (row % 2 === 0) { doc.fillColor("#f1f5f9").rect(fx, fy - 1, colW4, 24).fill() }
-      doc.fillColor(C.muted).font("Helvetica").fontSize(6.5).text(label, fx + 6, fy + 2)
-      doc.fillColor(C.text).font("Helvetica-Bold").fontSize(8.5).text(val, fx + 6, fy + 11)
-    })
-    y += Math.ceil(vFields.length / cols4) * 24 + 6
+    const cols = 4
+    const colW = CW / cols
+    const rowH = 22
 
-    // ── Client + Documents ───────────────────────────────────────────────────────
-    y = sectionBar(doc, "DATOS DEL CLIENTE", ML, y, CW)
+    vFields.forEach(([label, val], i) => {
+      const col = i % cols
+      const row = Math.floor(i / cols)
+      const fx = ML + col * colW
+      const fy = y + row * rowH
+      if (row % 2 === 0) doc.fillColor("#f1f5f9").rect(fx, fy - 1, colW, rowH).fill()
+      doc.fillColor(C.muted).font("Helvetica").fontSize(6.5).text(label, fx + 5, fy + 2)
+      doc.fillColor(C.text).font("Helvetica-Bold").fontSize(8.5).text(val, fx + 5, fy + 11, { width: colW - 8 })
+    })
+    y += Math.ceil(vFields.length / cols) * rowH + 5
+
+    // ── Datos del cliente ─────────────────────────────────────────────────────
+    y = sectionBar(doc, "DATOS DEL CLIENTE", y)
 
     const cFields: [string, string][] = [
       ["Nombre",   cl.full_name ?? "—"],
@@ -383,294 +408,318 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       ["Teléfono", cl.phone ?? "—"],
       ["Email",    cl.email ?? "—"],
     ]
+    const cColW = CW / cFields.length
     cFields.forEach(([label, val], i) => {
-      const fx = ML + i * (CW / 4)
-      doc.fillColor(C.muted).font("Helvetica").fontSize(6.5).text(label, fx, y)
-      doc.fillColor(C.text).font("Helvetica-Bold").fontSize(8).text(val, fx, y + 9, { width: CW / 4 - 4 })
+      const fx = ML + i * cColW
+      if (i % 2 === 0) doc.fillColor("#f8fafc").rect(fx, y - 1, cColW, 22).fill()
+      doc.fillColor(C.muted).font("Helvetica").fontSize(6.5).text(label, fx + 5, y + 1)
+      doc.fillColor(C.text).font("Helvetica-Bold").fontSize(8).text(val, fx + 5, y + 10, { width: cColW - 8 })
     })
-    y += 26
+    y += 22
 
-    // Documents strip
+    // Documents strip (optional)
     if (v.soap_estado || v.rev_tecnica_estado || v.permiso_circulacion) {
-      doc.fillColor("#fef3c7").rect(ML, y, CW, 22).fill()
-      doc.strokeColor("#fde68a").lineWidth(0.5).rect(ML, y, CW, 22).stroke()
+      doc.fillColor("#fef9c3").rect(ML, y, CW, 20).fill()
+      doc.strokeColor("#fde68a").lineWidth(0.5).rect(ML, y, CW, 20).stroke()
       const docFields: [string, string][] = [
-        ["SOAP",               v.soap_estado ?? "—"],
-        ["Rev. Técnica",       v.rev_tecnica_estado ?? "—"],
-        ["Perm. Circulación",  v.permiso_circulacion ?? "—"],
-        ["Multas",             v.multas ?? "$0"],
+        ["SOAP",              v.soap_estado ?? "—"],
+        ["Rev. Técnica",      v.rev_tecnica_estado ?? "—"],
+        ["Perm. Circulación", v.permiso_circulacion ?? "—"],
+        ["Multas",            v.multas ?? "$0"],
       ]
+      const dColW = CW / docFields.length
       docFields.forEach(([label, val], i) => {
-        const fx = ML + i * (CW / 4)
-        doc.fillColor("#92400e").font("Helvetica").fontSize(6).text(label, fx + 6, y + 3)
-        doc.fillColor("#78350f").font("Helvetica-Bold").fontSize(7.5).text(val, fx + 6, y + 12)
+        const fx = ML + i * dColW
+        doc.fillColor("#92400e").font("Helvetica").fontSize(6).text(label, fx + 5, y + 2)
+        doc.fillColor("#78350f").font("Helvetica-Bold").fontSize(7).text(val, fx + 5, y + 11)
       })
-      y += 26
+      y += 22
     }
 
     y += 4
 
-    // ── Scores + Car Diagram ──────────────────────────────────────────────────────
-    y = sectionBar(doc, "RESULTADO DE LA INSPECCIÓN", ML, y, CW)
+    // ── Resultado + Diagrama ──────────────────────────────────────────────────
+    y = sectionBar(doc, "RESULTADO DE LA INSPECCIÓN", y)
 
-    const scoreY = y
-    const scoreH = 80
+    const resultSectionY = y
 
-    // Score boxes
+    // Score boxes — left portion (width ≈ 320pt)
+    const SCORE_COL_W = 320
     const scores = [
-      { label: "NOTA FINAL",  nota: ins.nota_final,     big: true  },
-      { label: "Visual",      nota: ins.nota_visual,    big: false },
+      { label: "NOTA FINAL",  nota: ins.nota_final,      big: true  },
+      { label: "Visual",      nota: ins.nota_visual,     big: false },
       { label: "Carrocería",  nota: ins.nota_carroceria, big: false },
-      { label: "Mecánica",    nota: ins.nota_mecanica,  big: false },
+      { label: "Mecánica",    nota: ins.nota_mecanica,   big: false },
     ]
 
+    const BIG_W = 88, SM_W = 72, GAP = 7
+    const SCORE_H = 74
     let sx = ML
+
     scores.forEach(s => {
       const nota = s.nota ?? 0
-      const bw = s.big ? 94 : 76
-      const bh = scoreH
-      const col = nota >= 6.5 ? C.good : nota >= 5 ? C.warn : C.bad
+      const bw = s.big ? BIG_W : SM_W
+      const bh = SCORE_H
+      const col = nota >= 6.5 ? "#15803d" : nota >= 5 ? "#b45309" : "#b91c1c"
+      const colLight = nota >= 6.5 ? "#dcfce7" : nota >= 5 ? "#fef3c7" : "#fee2e2"
+
+      // Card background
+      doc.fillColor(colLight).roundedRect(sx, resultSectionY, bw, bh, 6).fill()
+      doc.strokeColor(col).lineWidth(1.5).roundedRect(sx, resultSectionY, bw, bh, 6).stroke()
+
+      // Top color stripe
+      doc.fillColor(col).roundedRect(sx, resultSectionY, bw, 26, 6).fill()
+      doc.fillColor(col).rect(sx, resultSectionY + 14, bw, 12).fill()
+
+      // Note value
+      doc.fillColor(C.white).font("Helvetica-Bold").fontSize(s.big ? 22 : 18)
+        .text(nota ? nota.toFixed(1) : "—", sx, resultSectionY + 3, { width: bw, align: "center" })
+
+      // /7.0
+      doc.fillColor("#ffffff99").font("Helvetica").fontSize(6)
+        .text("/7.0", sx, resultSectionY + 18, { width: bw, align: "center" })
+
+      // Percentage
       const pct = Math.round((nota / 7) * 100)
+      doc.fillColor(col).font("Helvetica-Bold").fontSize(s.big ? 20 : 16)
+        .text(`${pct}%`, sx, resultSectionY + 32, { width: bw, align: "center" })
 
-      // Box
-      doc.fillColor(col).roundedRect(sx, scoreY, bw, bh, 8).fill()
-      // Light top stripe
-      doc.fillColor("#ffffff30").roundedRect(sx, scoreY, bw, 28, 8).fill()
-      doc.fillColor("#ffffff00").rect(sx, scoreY + 14, bw, 14).fill()
-
-      // Note number
-      doc.fillColor(C.white).font("Helvetica-Bold").fontSize(s.big ? 34 : 26)
-        .text(nota ? nota.toFixed(1) : "—", sx, scoreY + (s.big ? 8 : 11), { width: bw, align: "center" })
-
-      // /7.0 and %
-      doc.fillColor("#ffffff99").font("Helvetica").fontSize(7)
-        .text(`/7.0  ${pct}%`, sx, scoreY + (s.big ? 48 : 42), { width: bw, align: "center" })
-
-      // Progress bar
-      const barW = bw - 16, barX = sx + 8
-      doc.fillColor("#ffffff30").roundedRect(barX, scoreY + bh - 16, barW, 6, 3).fill()
-      doc.fillColor(C.white).roundedRect(barX, scoreY + bh - 16, barW * (nota / 7), 6, 3).fill()
+      // Progress bar background
+      const barX = sx + 8, barW2 = bw - 16
+      doc.fillColor("#0000001a").roundedRect(barX, resultSectionY + bh - 14, barW2, 5, 2.5).fill()
+      doc.fillColor(col).roundedRect(barX, resultSectionY + bh - 14, barW2 * (nota / 7), 5, 2.5).fill()
 
       // Label
-      doc.fillColor(C.white).font("Helvetica-Bold").fontSize(s.big ? 7.5 : 6.5)
-        .text(s.label, sx, scoreY + bh - 7, { width: bw, align: "center" })
+      doc.fillColor(col).font("Helvetica-Bold").fontSize(s.big ? 7 : 6)
+        .text(s.label, sx, resultSectionY + bh - 7, { width: bw, align: "center" })
 
-      sx += bw + 8
+      sx += bw + GAP
     })
 
-    // Car diagram (right of scores)
-    const carX = ML + 94 + 76 * 3 + 8 * 4 + 6  // after score boxes
-    const carDiagX = 360
-    const carDiagY = scoreY - 24
+    // Car diagram — right portion, starts at x ≈ 340
+    const carX = ML + BIG_W + SM_W * 3 + GAP * 4 + 10  // ≈ 342
+    const carY = resultSectionY - 8
 
-    drawCarTopDown(doc, carDiagX, carDiagY, zoneColors)
-    drawLegend(doc, carDiagX + 124, carDiagY + 10)
+    drawCarTopDown(doc, carX, carY, zoneColors)
+    drawLegend(doc, carX + 110, carY + 40)
 
-    y = scoreY + scoreH + 10
+    // The car is 162pt tall, scores are 74pt — use max
+    y = resultSectionY + 162 + 8
 
-    // ── Defects ──────────────────────────────────────────────────────────────────
+    // ── Defectos detectados ───────────────────────────────────────────────────
     if (allDefects.length > 0) {
-      y = sectionBar(doc, `OBSERVACIONES DETECTADAS  (${allDefects.length} ítem${allDefects.length !== 1 ? "s" : ""})`, ML, y, CW)
+      y = sectionBar(doc, `ÍTEMS CON OBSERVACIONES  (${allDefects.length})`, y)
 
-      doc.fillColor("#fff7ed").rect(ML, y, CW, Math.min(allDefects.length * 12, 132) + 4).fill()
-      doc.strokeColor("#fed7aa").lineWidth(0.5).rect(ML, y, CW, Math.min(allDefects.length * 12, 132) + 4).stroke()
+      const defH = Math.min(Math.ceil(allDefects.length / 2) * 11, 110) + 6
+      doc.fillColor("#fff7ed").rect(ML, y, CW, defH).fill()
+      doc.strokeColor("#fed7aa").lineWidth(0.5).rect(ML, y, CW, defH).stroke()
 
-      const limit = Math.min(allDefects.length, 11)
+      const limit = Math.min(allDefects.length, 20)
       const half = Math.ceil(limit / 2)
+      const colDefW = CW / 2 - 8
 
       for (let i = 0; i < limit; i++) {
         const item = allDefects[i]
-        const col2 = i >= half
-        const ix = ML + (col2 ? CW / 2 + 4 : 6)
-        const iy = y + (col2 ? i - half : i) * 12 + 4
+        const right = i >= half
+        const ix = ML + (right ? CW / 2 + 6 : 5)
+        const iy = y + (right ? i - half : i) * 11 + 4
         const ec = estadoColor(item.estado)
 
-        doc.fillColor(ec).circle(ix + 4, iy + 5, 3).fill()
+        doc.fillColor(ec).circle(ix + 4, iy + 5, 2.5).fill()
         doc.fillColor(C.text).font("Helvetica").fontSize(6.5)
-          .text(item.item_label, ix + 10, iy + 1, { width: CW / 2 - 80 })
+          .text(item.item_label, ix + 10, iy + 1, { width: colDefW - 64 })
         doc.fillColor(ec).font("Helvetica-Bold").fontSize(6.5)
-          .text(item.estado, ix + CW / 2 - 88, iy + 1, { width: 72, align: "right" })
+          .text(item.estado, ix + colDefW - 58, iy + 1, { width: 56, align: "right" })
       }
 
       if (allDefects.length > limit) {
         doc.fillColor(C.muted).font("Helvetica").fontSize(6)
-          .text(`... y ${allDefects.length - limit} ítems más — ver tabla completa en pág. 2`, ML + 6, y + limit * 12 / 2 + 2)
+          .text(`... y ${allDefects.length - limit} más — ver tabla completa en pág. 2`, ML + 5, y + defH - 8)
       }
 
-      y += Math.min(allDefects.length, limit) / 2 * 12 + 14
+      y += defH + 4
     }
 
-    // ── Observations ────────────────────────────────────────────────────────────
-    if (ins.comentarios && y < 720) {
-      y = sectionBar(doc, "OBSERVACIONES DEL INSPECTOR", ML, y, CW)
-      const obsText = ins.comentarios.slice(0, 400)
-      const obsH = 36
+    // ── Observaciones ─────────────────────────────────────────────────────────
+    if (ins.comentarios && y < 700) {
+      y = sectionBar(doc, "OBSERVACIONES DEL INSPECTOR", y)
+      const obsText = ins.comentarios.slice(0, 500)
+      const lines = obsText.split("\n").length
+      const obsH = Math.min(Math.max(lines * 10, 30), 50)
       doc.fillColor("#f0fdf4").rect(ML, y, CW, obsH).fill()
       doc.strokeColor("#86efac").lineWidth(0.5).rect(ML, y, CW, obsH).stroke()
       doc.fillColor(C.text).font("Helvetica").fontSize(7.5)
-        .text(obsText, ML + 8, y + 6, { width: CW - 16, lineGap: 2, height: obsH - 10, ellipsis: true })
-      y += obsH + 6
+        .text(obsText, ML + 7, y + 5, { width: CW - 14, lineGap: 1.5, height: obsH - 8, ellipsis: true })
+      y += obsH + 4
     }
 
-    // ── Signatures ───────────────────────────────────────────────────────────────
-    const sigY = Math.max(y + 10, 700)
-    if (sigY < 760) {
-      // Verdict badge
-      const notaFinal = ins.nota_final ?? 0
-      const verdict = notaFinal >= 6.5 ? "APROBADO" : notaFinal >= 5 ? "CONDICIONADO" : "RECHAZADO"
-      const verdictColor = notaFinal >= 6.5 ? C.good : notaFinal >= 5 ? C.warn : C.bad
+    // ── Veredicto + Firmas ────────────────────────────────────────────────────
+    const sigMinY = y + 14
+    const sigActualY = sigMinY > 720 ? 720 : sigMinY
 
-      doc.fillColor(verdictColor).roundedRect(ML, sigY, 180, 26, 5).fill()
-      doc.fillColor(C.white).font("Helvetica-Bold").fontSize(13)
-        .text(verdict, ML, sigY + 6, { width: 180, align: "center" })
+    const notaFinal = ins.nota_final ?? 0
+    const verdict = notaFinal >= 6.5 ? "APROBADO" : notaFinal >= 5 ? "CONDICIONADO" : "RECHAZADO"
+    const verdictBg = notaFinal >= 6.5 ? "#15803d" : notaFinal >= 5 ? "#b45309" : "#b91c1c"
 
-      // Date/place
-      doc.fillColor(C.muted).font("Helvetica").fontSize(7.5)
-        .text(`Fecha: ${formatDate(ins.fecha_inspeccion)}`, ML + 190, sigY + 2)
-        .text("Lugar: ____________________________", ML + 190, sigY + 14)
+    // Verdict badge
+    doc.fillColor(verdictBg).roundedRect(ML, sigActualY, 180, 24, 5).fill()
+    doc.fillColor(C.white).font("Helvetica-Bold").fontSize(12)
+      .text(verdict, ML, sigActualY + 6, { width: 180, align: "center" })
 
-      // Inspector sig line
-      const sigLineY = sigY + 58
-      doc.fillColor(C.border).rect(ML, sigLineY, 180, 0.8).fill()
-      doc.fillColor(C.text).font("Helvetica-Bold").fontSize(7.5)
-        .text(ins.profiles?.full_name ?? "Inspector", ML, sigLineY + 4, { width: 180, align: "center" })
-      doc.fillColor(C.muted).font("Helvetica").fontSize(6.5)
-        .text("Firma del Inspector", ML, sigLineY + 14, { width: 180, align: "center" })
+    // Date + Place
+    doc.fillColor(C.muted).font("Helvetica").fontSize(7)
+      .text(`Fecha: ${formatDate(ins.fecha_inspeccion)}`, ML + 190, sigActualY + 4)
+      .text("Lugar: ________________________________________", ML + 190, sigActualY + 14)
 
-      // Client sig line
-      doc.fillColor(C.border).rect(ML + 350, sigLineY, 180, 0.8).fill()
-      doc.fillColor(C.muted).font("Helvetica").fontSize(7.5)
-        .text("Nombre: __________________________", ML + 350, sigLineY + 4, { width: 180, align: "center" })
-      doc.fillColor(C.muted).font("Helvetica").fontSize(6.5)
-        .text("Firma del Cliente", ML + 350, sigLineY + 14, { width: 180, align: "center" })
-    }
+    // Signature lines
+    const sl = sigActualY + 56
+    // Inspector
+    doc.fillColor(C.border).rect(ML, sl, 170, 0.8).fill()
+    doc.fillColor(C.text).font("Helvetica-Bold").fontSize(7.5)
+      .text(ins.profiles?.full_name ?? "Inspector", ML, sl + 4, { width: 170, align: "center" })
+    doc.fillColor(C.muted).font("Helvetica").fontSize(6.5)
+      .text("Firma del Inspector", ML, sl + 14, { width: 170, align: "center" })
+    // Client
+    doc.fillColor(C.border).rect(ML + 360, sl, 170, 0.8).fill()
+    doc.fillColor(C.muted).font("Helvetica").fontSize(7)
+      .text("_____________________________", ML + 360, sl + 4, { width: 170, align: "center" })
+    doc.fillColor(C.muted).font("Helvetica").fontSize(6.5)
+      .text("Nombre y Firma del Cliente", ML + 360, sl + 14, { width: 170, align: "center" })
 
     pageFooter(doc, companyName, 1)
 
-    // ════════════════════════════════════════════════════════════════════════════
-    // PAGE 2 — FULL ITEM TABLE
-    // ════════════════════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════════════════
+    // PÁGINA 2 — DETALLE COMPLETO
+    // ══════════════════════════════════════════════════════════════════════════
     doc.addPage({ margin: 0, size: "A4" })
 
     miniHeader(doc, "DETALLE COMPLETO DE INSPECCIÓN",
       `${v.patente ?? ""} · ${v.marca ?? ""} ${v.modelo ?? ""} ${v.anio ?? ""}  ·  Cliente: ${cl.full_name ?? ""}`,
-      logoBuf, companyName)
+      logoBuf)
 
-    y = 42
+    y = 36
 
     // Column header
-    doc.fillColor(C.accent).rect(ML, y, CW, 13).fill()
+    doc.fillColor(C.accent).rect(ML, y, CW, 12).fill()
     doc.fillColor(C.white).font("Helvetica-Bold").fontSize(6.5)
-      .text("ÍTEM", ML + 6, y + 3, { width: 300 })
-      .text("ESTADO", ML + 308, y + 3, { width: 100, align: "center" })
-      .text("OBSERVACIONES", ML + 412, y + 3, { width: 118 })
-    y += 15
+      .text("ÍTEM", ML + 6, y + 2.5, { width: 296 })
+      .text("ESTADO", ML + 304, y + 2.5, { width: 110, align: "center" })
+      .text("OBSERVACIONES", ML + 418, y + 2.5, { width: 110 })
+    y += 14
 
     let pageNum = 2
-    let currentSection = 0
-    let currentSub = ""
+    let curSection = 0, curSub = ""
     let rowIdx = 0
-
     const sectionNames: Record<number, string> = {
-      1: "1. INSPECCIÓN VISUAL",
-      2: "2. INSPECCIÓN DE CARROCERÍA",
-      3: "3. INSPECCIÓN MECÁNICA",
+      1: "1.  INSPECCIÓN VISUAL",
+      2: "2.  INSPECCIÓN DE CARROCERÍA",
+      3: "3.  INSPECCIÓN MECÁNICA",
     }
 
     items.forEach(item => {
-      // Check page overflow
-      if (y > 790) {
+      const hasObs = !!item.observaciones
+      const rowH2 = hasObs ? 15 : 10
+
+      // Page break
+      if (y + rowH2 > PH - 24) {
         pageFooter(doc, companyName, pageNum)
         doc.addPage({ margin: 0, size: "A4" })
         pageNum++
         miniHeader(doc, "DETALLE COMPLETO (cont.)",
-          `${v.patente ?? ""} · ${v.marca ?? ""} ${v.modelo ?? ""}`, logoBuf, companyName)
-        y = 42
-        // re-draw col header
-        doc.fillColor(C.accent).rect(ML, y, CW, 13).fill()
+          `${v.patente ?? ""} · ${v.marca ?? ""} ${v.modelo ?? ""}`, logoBuf)
+        y = 36
+        // Column header repeat
+        doc.fillColor(C.accent).rect(ML, y, CW, 12).fill()
         doc.fillColor(C.white).font("Helvetica-Bold").fontSize(6.5)
-          .text("ÍTEM", ML + 6, y + 3, { width: 300 })
-          .text("ESTADO", ML + 308, y + 3, { width: 100, align: "center" })
-          .text("OBSERVACIONES", ML + 412, y + 3, { width: 118 })
-        y += 15
-        rowIdx = 0
-        currentSection = 0; currentSub = ""
+          .text("ÍTEM", ML + 6, y + 2.5, { width: 296 })
+          .text("ESTADO", ML + 304, y + 2.5, { width: 110, align: "center" })
+          .text("OBSERVACIONES", ML + 418, y + 2.5, { width: 110 })
+        y += 14
+        rowIdx = 0; curSection = 0; curSub = ""
       }
 
       // Section header
-      if (item.section !== currentSection) {
-        currentSection = item.section; currentSub = ""
-        doc.fillColor(C.brand).rect(ML, y, CW, 14).fill()
-        doc.fillColor(C.white).font("Helvetica-Bold").fontSize(7.5)
-          .text(sectionNames[item.section] ?? "", ML + 8, y + 3.5)
-        y += 16; rowIdx = 0
+      if (item.section !== curSection) {
+        curSection = item.section; curSub = ""
+        doc.fillColor(C.brand).rect(ML, y, CW, 13).fill()
+        doc.fillColor(C.white).font("Helvetica-Bold").fontSize(7)
+          .text(sectionNames[item.section] ?? "", ML + 8, y + 3)
+        y += 14; rowIdx = 0
       }
 
       // Subsection header
-      if (item.subsection !== currentSub) {
-        currentSub = item.subsection
-        doc.fillColor("#dde4f0").rect(ML, y, CW, 11).fill()
+      if (item.subsection !== curSub) {
+        curSub = item.subsection
+        doc.fillColor("#dde4ee").rect(ML, y, CW, 11).fill()
         doc.fillColor(C.brand).font("Helvetica-Bold").fontSize(6.5)
-          .text(item.subsection.replace(/^\d+\.\d+\s*/, ""), ML + 10, y + 2.5)
-        y += 13; rowIdx = 0
+          .text(item.subsection.replace(/^\d+\.\d+\s*/, ""), ML + 8, y + 2)
+        y += 12; rowIdx = 0
       }
 
-      // Row
-      const rowH = item.observaciones ? 16 : 11
-      if (rowIdx % 2 === 0) { doc.fillColor("#f8fafc").rect(ML, y, CW, rowH).fill() }
+      // Alternating row bg
+      if (rowIdx % 2 === 0) doc.fillColor("#f8fafc").rect(ML, y, CW, rowH2).fill()
 
       const ec = estadoColor(item.estado)
-      const isBad2 = isBadEstado(item.estado)
+      const isIssue = isBad(item.estado) || isWarn(item.estado)
 
-      // Indicator dot
-      if (isBad2 || ["Con Daño","Regular"].includes(item.estado)) {
-        doc.fillColor(ec).circle(ML + 7, y + (rowH / 2), 2.5).fill()
+      // Status dot (only if issue)
+      if (isIssue) {
+        doc.fillColor(ec).circle(ML + 6, y + rowH2 / 2, 2.5).fill()
       }
 
+      // Item label
       doc.fillColor(C.text).font("Helvetica").fontSize(6.8)
-        .text(item.item_label, ML + 14, y + 2, { width: 288 })
+        .text(item.item_label, ML + 12, y + (hasObs ? 2 : 1.5), { width: 288 })
 
-      doc.fillColor(ec).font("Helvetica-Bold").fontSize(6.8)
-        .text(item.estado, ML + 308, y + 2, { width: 100, align: "center" })
+      // Estado
+      doc.fillColor(ec).font(isIssue ? "Helvetica-Bold" : "Helvetica").fontSize(6.8)
+        .text(item.estado, ML + 304, y + (hasObs ? 2 : 1.5), { width: 110, align: "center" })
 
-      if (item.observaciones) {
+      // Observations (right column or below label)
+      if (hasObs) {
         doc.fillColor(C.muted).font("Helvetica").fontSize(5.8)
-          .text(`↳ ${item.observaciones}`, ML + 14, y + 9, { width: 420 })
+          .text(item.observaciones!, ML + 12, y + 9, { width: 510 })
       }
 
+      // Row separator
       doc.strokeColor(C.mid).lineWidth(0.3)
-        .moveTo(ML, y + rowH).lineTo(ML + CW, y + rowH).stroke()
+        .moveTo(ML, y + rowH2).lineTo(ML + CW, y + rowH2).stroke()
 
-      y += rowH; rowIdx++
+      y += rowH2; rowIdx++
     })
 
-    // ── Photos ───────────────────────────────────────────────────────────────────
-    if (photoBuffers.length > 0) {
+    // ── Fotos ─────────────────────────────────────────────────────────────────
+    if (photoBufs.length > 0) {
       pageFooter(doc, companyName, pageNum)
       doc.addPage({ margin: 0, size: "A4" })
       pageNum++
       miniHeader(doc, "FOTOGRAFÍAS DEL VEHÍCULO",
-        `${v.patente ?? ""} · ${v.marca ?? ""} ${v.modelo ?? ""}`, logoBuf, companyName)
-      y = 44
-      const imgW = 172, imgH = 130, gap = 8
+        `${v.patente ?? ""} · ${v.marca ?? ""} ${v.modelo ?? ""}`, logoBuf)
+
+      y = 38
+      const imgW = 170, imgH = 128, imgGap = 6
       let col2 = 0
 
-      for (let pi = 0; pi < photoBuffers.length; pi++) {
-        if (y + imgH > 800) {
+      for (let pi = 0; pi < photoBufs.length; pi++) {
+        if (y + imgH > PH - 24) {
           pageFooter(doc, companyName, pageNum)
           doc.addPage({ margin: 0, size: "A4" })
           pageNum++
-          y = 20; col2 = 0
+          miniHeader(doc, "FOTOGRAFÍAS (cont.)", `${v.patente ?? ""}`, logoBuf)
+          y = 38; col2 = 0
         }
-        const px = ML + col2 * (imgW + gap)
+        const px = ML + col2 * (imgW + imgGap)
         try {
-          doc.image(photoBuffers[pi], px, y, { width: imgW, height: imgH })
-          doc.strokeColor(C.border).lineWidth(0.8).rect(px, y, imgW, imgH).stroke()
+          doc.image(photoBufs[pi], px, y, { width: imgW, height: imgH })
         } catch {
           doc.fillColor(C.light).rect(px, y, imgW, imgH).fill()
-          doc.fillColor(C.muted).font("Helvetica").fontSize(8).text("Sin imagen", px, y + imgH / 2 - 4, { width: imgW, align: "center" })
+          doc.fillColor(C.muted).font("Helvetica").fontSize(8)
+            .text("Sin imagen", px, y + imgH / 2 - 5, { width: imgW, align: "center" })
         }
-        doc.fillColor(C.muted).font("Helvetica").fontSize(6.5).text(`Foto ${pi + 1}`, px, y + imgH + 2, { width: imgW, align: "center" })
+        doc.strokeColor(C.border).lineWidth(0.8).rect(px, y, imgW, imgH).stroke()
+        doc.fillColor(C.muted).font("Helvetica").fontSize(6)
+          .text(`Foto ${pi + 1}`, px, y + imgH + 2, { width: imgW, align: "center" })
+
         col2++
         if (col2 === 3) { col2 = 0; y += imgH + 18 }
       }
@@ -680,8 +729,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     doc.end()
   })
 
-  const buffer = Buffer.concat(chunks)
-  return new NextResponse(buffer, {
+  const buf = Buffer.concat(chunks)
+  return new NextResponse(buf, {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename="inspeccion-${v.patente ?? id}-${ins.fecha_inspeccion?.slice(0, 10) ?? ""}.pdf"`,
