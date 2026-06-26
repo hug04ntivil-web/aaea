@@ -277,10 +277,6 @@ export default function LandingPage() {
               </p>
 
               <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 44 }}>
-                <a href={WA_URL} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "#25D366", color: "#fff", padding: "14px 28px", borderRadius: 10, fontFamily: "var(--font-barlow), sans-serif", fontSize: 16, fontWeight: 700, textDecoration: "none" }}>
-                  <IcoWA size={22} />
-                  Contactar por WhatsApp
-                </a>
                 <button onClick={() => scrollTo("contacto")} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "transparent", color: "#fff", border: "2px solid rgba(255,255,255,0.22)", padding: "14px 28px", borderRadius: 10, fontFamily: "var(--font-barlow), sans-serif", fontSize: 16, fontWeight: 700, cursor: "pointer" }}>
                   Solicitar Inspección
                   <IcoArrow />

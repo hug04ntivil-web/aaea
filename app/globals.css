@@ -162,7 +162,7 @@ body {
 /* ── Hero bg mobile: mostrar más al mecánico con el vehículo ── */
 .hero-bg-img { object-position: center center; }
 @media (max-width: 768px) {
-  .hero-bg-img { object-position: 70% center; }
+  .hero-bg-img { object-position: 58% center; }
 }
 
 /* ── Process step hover ─────────────────────────────── */
