@@ -49,3 +49,133 @@ body {
 /* Dark mode scrollbar */
 .dark ::-webkit-scrollbar-thumb { background: #334155; }
 .dark ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+/* ═══════════════════════════════════════════════════════
+   LANDING PAGE v2 — estilos adicionales
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Barra de progreso ──────────────────────────────── */
+#pgbar {
+  position: fixed;
+  top: 0; left: 0;
+  height: 3px;
+  width: 0;
+  background: linear-gradient(90deg, #2d7a2d, #52c752);
+  z-index: 200;
+  pointer-events: none;
+  transition: width 0.08s linear;
+}
+
+/* ── Navbar scroll state ────────────────────────────── */
+#site-nav {
+  background: transparent;
+  border-bottom: 1px solid transparent;
+  transition: background 0.32s ease, border-color 0.32s ease, box-shadow 0.32s ease;
+}
+#site-nav.scrolled {
+  background: rgba(255, 255, 255, 0.97);
+  border-bottom-color: #e8e8e3;
+  box-shadow: 0 1px 18px rgba(0, 0, 0, 0.07);
+}
+.nav-link-item {
+  color: rgba(255, 255, 255, 0.85);
+  transition: color 0.2s;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-barlow), sans-serif;
+  font-weight: 500;
+  font-size: 15px;
+  letter-spacing: 0.01em;
+  padding: 0;
+}
+.nav-link-item:hover { color: #fff; }
+#site-nav.scrolled .nav-link-item { color: #374151; }
+#site-nav.scrolled .nav-link-item:hover { color: #2d7a2d; }
+#logo-main { filter: brightness(0) invert(1); transition: filter 0.32s; }
+#site-nav.scrolled #logo-main { filter: none; }
+.nav-menu-btn { background: none; border: none; cursor: pointer; color: #fff; padding: 6px; line-height: 0; transition: color 0.2s; }
+#site-nav.scrolled .nav-menu-btn { color: #374151; }
+
+/* ── Animación de entrada al scroll ─────────────────── */
+.anim-up {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.62s cubic-bezier(0.2, 0.8, 0.2, 1),
+              transform 0.62s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.anim-up.visible { opacity: 1; transform: none; }
+.delay-1 { transition-delay: 0.07s; }
+.delay-2 { transition-delay: 0.14s; }
+.delay-3 { transition-delay: 0.21s; }
+.delay-4 { transition-delay: 0.28s; }
+.delay-5 { transition-delay: 0.35s; }
+.delay-6 { transition-delay: 0.42s; }
+
+/* ── Keyframes ──────────────────────────────────────── */
+@keyframes wa-ring {
+  0%, 100% { box-shadow: 0 4px 20px rgba(37,211,102,.4), 0 0 0 0 rgba(37,211,102,.3); }
+  60%       { box-shadow: 0 4px 20px rgba(37,211,102,.4), 0 0 0 18px rgba(37,211,102,0); }
+}
+@keyframes gear-rotate { to { transform: rotate(360deg); } }
+@keyframes dot-pulse   { 0%,100%{opacity:1} 50%{opacity:0.3} }
+@keyframes float-y     { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+
+.wa-pulse   { animation: wa-ring 2.8s ease-in-out infinite; }
+.gear-spin  { animation: gear-rotate 22s linear infinite; transform-origin: center; }
+.float-anim { animation: float-y 5s ease-in-out infinite; }
+.dot-pulse  { animation: dot-pulse 2s ease-in-out infinite; }
+
+/* ── Service cards hover ────────────────────────────── */
+.svc-card {
+  transition: transform 0.28s ease, box-shadow 0.28s ease, border-color 0.28s ease;
+}
+.svc-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 16px 40px rgba(45, 122, 45, 0.13);
+  border-color: rgba(45, 122, 45, 0.35) !important;
+}
+.svc-card:hover .svc-icon {
+  background: #2d7a2d !important;
+  color: #fff !important;
+}
+.svc-icon { transition: background 0.28s, color 0.28s; }
+.svc-card:hover .svc-num { color: #d4edda !important; }
+.svc-num { transition: color 0.28s; }
+
+/* ── Process step hover ─────────────────────────────── */
+.proc-step { transition: transform 0.25s ease; }
+.proc-step:hover { transform: translateY(-4px); }
+.proc-step:hover .proc-num {
+  background: #2d7a2d !important;
+  color: #fff !important;
+  border-color: #2d7a2d !important;
+}
+.proc-num { transition: background 0.25s, color 0.25s, border-color 0.25s; }
+
+/* ── Testimonial cards hover ────────────────────────── */
+.testi-card { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+.testi-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.09);
+}
+
+/* ── Contact links hover ────────────────────────────── */
+.contact-link { transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s; }
+.contact-link:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  border-color: rgba(45, 122, 45, 0.3) !important;
+}
+
+/* ── Form inputs ────────────────────────────────────── */
+.landing-input {
+  transition: border-color 0.2s, box-shadow 0.2s;
+  font-family: var(--font-barlow), sans-serif;
+  font-size: 14px;
+}
+.landing-input:focus {
+  outline: none;
+  border-color: #2d7a2d !important;
+  box-shadow: 0 0 0 3px rgba(45, 122, 45, 0.12);
+}
