@@ -342,7 +342,7 @@ export default function LandingPage() {
                 {/* Gradiente solo en la parte inferior para que el texto sea legible */}
                 <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, transparent 0%, transparent 40%, rgba(0,0,0,0.72) 100%)", pointerEvents: "none" }} />
                 {/* Número en esquina superior izquierda */}
-                <div style={{ position: "absolute", top: 14, left: 16, fontFamily: "var(--font-barlow-condensed), sans-serif", fontSize: 15, fontWeight: 800, color: "#52c752", letterSpacing: "0.08em", lineHeight: 1, background: "rgba(10,30,10,0.55)", borderRadius: 6, padding: "4px 8px" }}>{num}</div>
+                <div className="svc-num" style={{ position: "absolute", top: 14, left: 16, fontFamily: "var(--font-barlow-condensed), sans-serif", fontSize: 15, fontWeight: 800, color: "#52c752", letterSpacing: "0.08em", lineHeight: 1, background: "rgba(10,30,10,0.55)", borderRadius: 6, padding: "4px 8px" }}>{num}</div>
                 {/* Contenido anclado al fondo */}
                 <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "20px 20px 22px" }}>
                   <div className="svc-icon" style={{ width: 44, height: 44, borderRadius: 10, background: "rgba(10,30,10,0.65)", display: "flex", alignItems: "center", justifyContent: "center", color: "#52c752", marginBottom: 10 }}>
