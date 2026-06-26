@@ -242,11 +242,18 @@ export default function LandingPage() {
 
       {/* ═══════ HERO ═══════ */}
       <section id="inicio" style={{ minHeight: "100vh", background: "#090F09", display: "flex", alignItems: "center", paddingTop: 68, position: "relative", overflow: "hidden" }}>
-        {/* Background decorations */}
+        {/* Foto de fondo con overlay oscuro */}
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+          <img src="/fondoweb.svg" alt="" aria-hidden="true" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center" }} />
+          {/* Overlay oscuro para legibilidad del texto */}
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(5,10,5,0.88) 0%, rgba(9,15,9,0.80) 50%, rgba(5,14,5,0.72) 100%)" }} />
+          {/* Degradado inferior para la transición con la wave */}
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 200, background: "linear-gradient(to bottom, transparent 0%, rgba(9,15,9,0.6) 60%, #090F09 100%)" }} />
+        </div>
+        {/* Destellos de color sobre la foto */}
         <div style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
-          <div style={{ position: "absolute", right: -100, top: "15%", width: 580, height: 580, borderRadius: "50%", background: "radial-gradient(circle,rgba(45,122,45,0.13) 0%,transparent 70%)" }} />
-          <div style={{ position: "absolute", left: -60, bottom: "5%", width: 380, height: 380, borderRadius: "50%", background: "radial-gradient(circle,rgba(82,199,82,0.07) 0%,transparent 70%)" }} />
-          <div style={{ position: "absolute", inset: 0, opacity: 0.028, backgroundImage: "linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)", backgroundSize: "72px 72px" }} />
+          <div style={{ position: "absolute", right: -100, top: "15%", width: 580, height: 580, borderRadius: "50%", background: "radial-gradient(circle,rgba(45,122,45,0.10) 0%,transparent 70%)" }} />
+          <div style={{ position: "absolute", left: -60, bottom: "5%", width: 380, height: 380, borderRadius: "50%", background: "radial-gradient(circle,rgba(82,199,82,0.06) 0%,transparent 70%)" }} />
         </div>
 
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "72px 28px 108px", width: "100%" }}>
@@ -331,14 +338,21 @@ export default function LandingPage() {
             <p className="section-sub">Tecnología de punta y personal certificado para mantener tu inversión en óptimas condiciones.</p>
           </div>
           <div className="svc-grid">
-            {SERVICES.map(({ icon, title, desc, num }) => (
-              <div key={title} className="svc-card" style={{ background: "#fff", borderRadius: 14, padding: 28, border: "1.5px solid #ebebE6", position: "relative", overflow: "hidden", cursor: "default" }}>
-                <div className="svc-num" style={{ position: "absolute", top: 14, right: 16, fontFamily: "var(--font-barlow-condensed), sans-serif", fontSize: 44, fontWeight: 900, color: "#eff4ef", lineHeight: 1, pointerEvents: "none", userSelect: "none" }}>{num}</div>
-                <div className="svc-icon" style={{ width: 52, height: 52, borderRadius: 12, background: "#edf7ed", display: "flex", alignItems: "center", justifyContent: "center", color: "#2d7a2d", marginBottom: 18 }}>
-                  {icon}
+            {SERVICES.map(({ icon, title, desc, num, bg }) => (
+              <div key={title} className="svc-card" style={{ borderRadius: 14, border: "1.5px solid #ebebE6", position: "relative", overflow: "hidden", cursor: "default", minHeight: 220 }}>
+                {/* Imagen de fondo del servicio */}
+                <img src={bg} alt="" aria-hidden="true" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", pointerEvents: "none" }} />
+                {/* Overlay para que el texto sea legible */}
+                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(160deg, rgba(255,255,255,0.93) 0%, rgba(255,255,255,0.88) 60%, rgba(240,249,240,0.92) 100%)", pointerEvents: "none" }} />
+                {/* Contenido */}
+                <div style={{ position: "relative", padding: 28 }}>
+                  <div className="svc-num" style={{ position: "absolute", top: -14, right: 0, fontFamily: "var(--font-barlow-condensed), sans-serif", fontSize: 44, fontWeight: 900, color: "rgba(45,122,45,0.12)", lineHeight: 1, pointerEvents: "none", userSelect: "none" }}>{num}</div>
+                  <div className="svc-icon" style={{ width: 52, height: 52, borderRadius: 12, background: "rgba(237,247,237,0.9)", display: "flex", alignItems: "center", justifyContent: "center", color: "#2d7a2d", marginBottom: 18 }}>
+                    {icon}
+                  </div>
+                  <h3 style={{ fontFamily: "var(--font-barlow), sans-serif", fontSize: 16, fontWeight: 700, color: "#0d1a0d", marginBottom: 8 }}>{title}</h3>
+                  <p style={{ fontFamily: "var(--font-barlow), sans-serif", fontSize: 14, fontWeight: 300, color: "#4b5563", lineHeight: 1.7 }}>{desc}</p>
                 </div>
-                <h3 style={{ fontFamily: "var(--font-barlow), sans-serif", fontSize: 16, fontWeight: 700, color: "#0d1a0d", marginBottom: 8 }}>{title}</h3>
-                <p style={{ fontFamily: "var(--font-barlow), sans-serif", fontSize: 14, fontWeight: 300, color: "#6b7280", lineHeight: 1.7 }}>{desc}</p>
               </div>
             ))}
           </div>
@@ -683,12 +697,12 @@ const svcIcon = (d: string, extra?: string) => (
 )
 
 const SERVICES = [
-  { num: "01", title: "Inspección Mecánica", desc: "Revisión integral con más de 90 ítems. Informe técnico con calificación /7.0 y evidencia fotográfica.", icon: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg> },
-  { num: "02", title: "Presupuestos Detallados", desc: "Cotizaciones con 3 opciones de repuesto: Genuino, Korea y Multi-origen. Sin cargos ocultos.", icon: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg> },
-  { num: "03", title: "Diagnóstico Electrónico", desc: "Lectura OBD2, análisis de sensores y diagnóstico computarizado de sistemas modernos.", icon: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" /><rect x="9" y="9" width="6" height="6" /><line x1="9" y1="1" x2="9" y2="4" /><line x1="15" y1="1" x2="15" y2="4" /><line x1="9" y1="20" x2="9" y2="23" /><line x1="15" y1="20" x2="15" y2="23" /><line x1="20" y1="9" x2="23" y2="9" /><line x1="20" y1="14" x2="23" y2="14" /><line x1="1" y1="9" x2="4" y2="9" /><line x1="1" y1="14" x2="4" y2="14" /></svg> },
-  { num: "04", title: "Mantención Preventiva", desc: "Cambio de aceite, filtros, frenos, suspensión y todos los servicios del fabricante.", icon: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg> },
-  { num: "05", title: "Repuestos e Insumos", desc: "Venta de repuestos y accesorios con asesoría técnica para elegir el componente correcto.", icon: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></svg> },
-  { num: "06", title: "Reparación General", desc: "Motor, transmisión, frenos, suspensión y dirección. Trabajos con garantía por escrito.", icon: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /></svg> },
+  { num: "01", bg: "/inspeccionmecanica.svg", title: "Inspección Mecánica", desc: "Revisión integral con más de 90 ítems. Informe técnico con calificación /7.0 y evidencia fotográfica.", icon: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg> },
+  { num: "02", bg: "/presupuestodetallado.svg", title: "Presupuestos Detallados", desc: "Cotizaciones con 3 opciones de repuesto: Genuino, Korea y Multi-origen. Sin cargos ocultos.", icon: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg> },
+  { num: "03", bg: "/diagnosticoelectronico.svg", title: "Diagnóstico Electrónico", desc: "Lectura OBD2, análisis de sensores y diagnóstico computarizado de sistemas modernos.", icon: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" /><rect x="9" y="9" width="6" height="6" /><line x1="9" y1="1" x2="9" y2="4" /><line x1="15" y1="1" x2="15" y2="4" /><line x1="9" y1="20" x2="9" y2="23" /><line x1="15" y1="20" x2="15" y2="23" /><line x1="20" y1="9" x2="23" y2="9" /><line x1="20" y1="14" x2="23" y2="14" /><line x1="1" y1="9" x2="4" y2="9" /><line x1="1" y1="14" x2="4" y2="14" /></svg> },
+  { num: "04", bg: "/mantencionpreventiva.svg", title: "Mantención Preventiva", desc: "Cambio de aceite, filtros, frenos, suspensión y todos los servicios del fabricante.", icon: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg> },
+  { num: "05", bg: "/repuestoseinsumos.svg", title: "Repuestos e Insumos", desc: "Venta de repuestos y accesorios con asesoría técnica para elegir el componente correcto.", icon: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></svg> },
+  { num: "06", bg: "/reparaciongeneral.svg", title: "Reparación General", desc: "Motor, transmisión, frenos, suspensión y dirección. Trabajos con garantía por escrito.", icon: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /></svg> },
 ]
 
 const procIcoStyle = { fill: "none", stroke: "#52c752", strokeWidth: 1.5, strokeLinecap: "round" as const, strokeLinejoin: "round" as const }

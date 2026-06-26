@@ -140,8 +140,11 @@ body {
   color: #fff !important;
 }
 .svc-icon { transition: background 0.28s, color 0.28s; }
-.svc-card:hover .svc-num { color: #d4edda !important; }
+.svc-card:hover .svc-num { color: rgba(45,122,45,0.22) !important; }
 .svc-num { transition: color 0.28s; }
+/* Al hover reducir el overlay para que la foto se vea más */
+.svc-card:hover img { transform: scale(1.05); transition: transform 0.5s ease; }
+.svc-card img { transition: transform 0.5s ease; }
 
 /* ── Process step hover ─────────────────────────────── */
 .proc-step { transition: transform 0.25s ease; }
