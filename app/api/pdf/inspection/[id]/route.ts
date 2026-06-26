@@ -623,23 +623,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       y += defBoxH + 4
     }
 
+    // ── Observaciones inspector — justo después de los ítems ─────────────────
+    if (ins.comentarios) {
+      y = sectionBar(doc, "OBSERVACIONES DEL INSPECTOR", y)
+      const obsLines = (ins.comentarios.match(/\n/g) || []).length + 1
+      const obsH = Math.min(Math.max(obsLines * 10, 28), 90)
+      doc.fillColor("#f0fdf4").rect(ML, y, CW, obsH).fill()
+      doc.strokeColor("#86efac").lineWidth(0.5).rect(ML, y, CW, obsH).stroke()
+      doc.fillColor(C.text).font("Helvetica").fontSize(7.5)
+        .text(ins.comentarios, ML + 8, y + 5, { width: CW - 16, lineGap: 2, height: obsH - 8, ellipsis: true })
+      y += obsH + 4
+    }
+
     // ── Firmas — ANCLADAS AL PIE DE LA PÁGINA ────────────────────────────────
     const SIG_TOP = PH - 118  // siempre al pie (724pt)
-
-    // ── Observaciones inspector — ancladas justo encima de las firmas ─────────
-    if (ins.comentarios) {
-      const obsLines = (ins.comentarios.match(/\n/g) || []).length + 1
-      const obsH = Math.min(Math.max(obsLines * 10, 28), 64)
-      const barY  = SIG_TOP - 12 - obsH - 16
-      const obsY  = barY + 16
-      doc.fillColor(C.brand).rect(ML, barY, CW, 13).fill()
-      doc.fillColor(C.white).font("Helvetica-Bold").fontSize(7)
-        .text("OBSERVACIONES DEL INSPECTOR", ML + 7, barY + 3)
-      doc.fillColor("#f0fdf4").rect(ML, obsY, CW, obsH).fill()
-      doc.strokeColor("#86efac").lineWidth(0.5).rect(ML, obsY, CW, obsH).stroke()
-      doc.fillColor(C.text).font("Helvetica").fontSize(7.5)
-        .text(ins.comentarios, ML + 8, obsY + 5, { width: CW - 16, lineGap: 2, height: obsH - 8, ellipsis: true })
-    }
 
     const notaFinal = ins.nota_final ?? 0
     const verdict = notaFinal >= 6.5 ? "APROBADO" : notaFinal >= 5 ? "CONDICIONADO" : "RECHAZADO"
