@@ -39,7 +39,7 @@ export default function LoginPage() {
       .single()
     const role = profile?.role
     if (role === "admin") router.push("/admin/dashboard")
-    else if (role === "inspector") router.push("/inspector/inspections")
+    else if (role === "inspector") router.push("/inspector/dashboard")
     else if (role === "client") router.push("/client/dashboard")
     else router.push("/admin/dashboard") // fallback
     router.refresh()

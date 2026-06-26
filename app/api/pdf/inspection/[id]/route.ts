@@ -862,11 +862,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     let carImgBuf: Buffer | null = null
     try { carImgBuf = fs.readFileSync(path.join(process.cwd(), "public", "autoparapdf.png")) } catch { }
 
-    // Área disponible: ML=28 hasta legendX-gap=430  →  402pt de ancho
-    const IMG_W = 260
-    const IMG_H = 340
-    const IMG_X = ML + Math.round(((450 - ML) - IMG_W) / 2)   // centro horizontal en área libre
-    const IMG_Y = 48
+    // Área disponible: ML=28 hasta legendX=450  →  422pt de ancho, 791pt de alto (sin header/footer)
+    const IMG_W = 310
+    const IMG_H = 420
+    const IMG_X = ML + Math.round(((450 - ML) - IMG_W) / 2)   // centrado horizontal en área libre
+    const IMG_Y = Math.round(33 + (791 - IMG_H) / 2)           // centrado vertical entre header y footer
 
     if (carImgBuf) {
       doc.image(carImgBuf, IMG_X, IMG_Y, { width: IMG_W, height: IMG_H })
