@@ -246,7 +246,7 @@ export default function LandingPage() {
         <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
           <img src="/fondoweb.png" alt="" aria-hidden="true" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center" }} />
           {/* Overlay oscuro para legibilidad del texto */}
-          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(5,10,5,0.88) 0%, rgba(9,15,9,0.80) 50%, rgba(5,14,5,0.72) 100%)" }} />
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(5,10,5,0.62) 0%, rgba(9,15,9,0.55) 50%, rgba(5,14,5,0.48) 100%)" }} />
           {/* Degradado inferior para la transición con la wave */}
           <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 200, background: "linear-gradient(to bottom, transparent 0%, rgba(9,15,9,0.6) 60%, #090F09 100%)" }} />
         </div>
@@ -260,23 +260,23 @@ export default function LandingPage() {
           <div className="hero-layout">
             {/* Left */}
             <div>
-              <div className="anim-up" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 100, padding: "7px 18px", marginBottom: 28 }}>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 100, padding: "7px 18px", marginBottom: 28 }}>
                 <span className="dot-pulse" style={{ width: 8, height: 8, borderRadius: "50%", background: "#52c752", flexShrink: 0, display: "inline-block" }} />
                 <span style={{ fontFamily: "var(--font-barlow), sans-serif", fontSize: 13, fontWeight: 500, color: "rgba(163,233,163,0.9)", letterSpacing: "0.04em" }}>San Ramón, Santiago · Atención inmediata</span>
               </div>
 
-              <h1 className="anim-up delay-1" style={{ fontFamily: "var(--font-barlow-condensed), sans-serif", fontSize: "clamp(52px,7.5vw,90px)", fontWeight: 900, color: "#fff", lineHeight: 0.93, letterSpacing: "-0.01em", marginBottom: 24, textTransform: "uppercase" }}>
+              <h1 style={{ fontFamily: "var(--font-barlow-condensed), sans-serif", fontSize: "clamp(52px,7.5vw,90px)", fontWeight: 900, color: "#fff", lineHeight: 0.93, letterSpacing: "-0.01em", marginBottom: 24, textTransform: "uppercase" }}>
                 INSPECCIÓN<br />
                 Y <span style={{ color: "#52c752" }}>REPARACIÓN</span><br />
                 AUTOMOTRIZ<br />
                 <span style={{ fontWeight: 700, color: "rgba(255,255,255,0.55)", fontSize: "0.72em" }}>PROFESIONAL</span>
               </h1>
 
-              <p className="anim-up delay-2" style={{ fontFamily: "var(--font-barlow), sans-serif", fontSize: 17, fontWeight: 300, color: "rgba(255,255,255,0.62)", lineHeight: 1.75, marginBottom: 36, maxWidth: 460 }}>
+              <p style={{ fontFamily: "var(--font-barlow), sans-serif", fontSize: 17, fontWeight: 300, color: "rgba(255,255,255,0.62)", lineHeight: 1.75, marginBottom: 36, maxWidth: 460 }}>
                 Diagnóstico preciso, presupuestos transparentes y servicio de calidad. Técnicos con más de 10 años de experiencia en San Ramón.
               </p>
 
-              <div className="anim-up delay-3" style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 44 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 44 }}>
                 <a href={WA_URL} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "#25D366", color: "#fff", padding: "14px 28px", borderRadius: 10, fontFamily: "var(--font-barlow), sans-serif", fontSize: 16, fontWeight: 700, textDecoration: "none" }}>
                   <IcoWA size={22} />
                   Contactar por WhatsApp
@@ -287,7 +287,7 @@ export default function LandingPage() {
                 </button>
               </div>
 
-              <div className="anim-up delay-4" style={{ display: "flex", flexWrap: "wrap", gap: 20 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 20 }}>
                 {["+10 años de experiencia", "Presupuesto sin costo", "Técnicos certificados"].map(t => (
                   <div key={t} style={{ display: "flex", alignItems: "center", gap: 7 }}>
                     <span style={{ color: "#52c752" }}><IcoCheck size={15} /></span>
@@ -343,15 +343,15 @@ export default function LandingPage() {
                 {/* Imagen de fondo del servicio */}
                 <img src={bg} alt="" aria-hidden="true" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", pointerEvents: "none" }} />
                 {/* Overlay para que el texto sea legible */}
-                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(160deg, rgba(255,255,255,0.93) 0%, rgba(255,255,255,0.88) 60%, rgba(240,249,240,0.92) 100%)", pointerEvents: "none" }} />
+                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(160deg, rgba(255,255,255,0.62) 0%, rgba(255,255,255,0.55) 60%, rgba(240,249,240,0.60) 100%)", pointerEvents: "none" }} />
                 {/* Contenido */}
                 <div style={{ position: "relative", padding: 28 }}>
                   <div className="svc-num" style={{ position: "absolute", top: -14, right: 0, fontFamily: "var(--font-barlow-condensed), sans-serif", fontSize: 44, fontWeight: 900, color: "rgba(45,122,45,0.12)", lineHeight: 1, pointerEvents: "none", userSelect: "none" }}>{num}</div>
-                  <div className="svc-icon" style={{ width: 52, height: 52, borderRadius: 12, background: "rgba(237,247,237,0.9)", display: "flex", alignItems: "center", justifyContent: "center", color: "#2d7a2d", marginBottom: 18 }}>
+                  <div className="svc-icon" style={{ width: 52, height: 52, borderRadius: 12, background: "rgba(10,30,10,0.55)", display: "flex", alignItems: "center", justifyContent: "center", color: "#52c752", marginBottom: 18 }}>
                     {icon}
                   </div>
-                  <h3 style={{ fontFamily: "var(--font-barlow), sans-serif", fontSize: 16, fontWeight: 700, color: "#0d1a0d", marginBottom: 8 }}>{title}</h3>
-                  <p style={{ fontFamily: "var(--font-barlow), sans-serif", fontSize: 14, fontWeight: 300, color: "#4b5563", lineHeight: 1.7 }}>{desc}</p>
+                  <h3 style={{ fontFamily: "var(--font-barlow), sans-serif", fontSize: 16, fontWeight: 700, color: "#fff", marginBottom: 8, textShadow: "0 1px 3px rgba(0,0,0,0.4)" }}>{title}</h3>
+                  <p style={{ fontFamily: "var(--font-barlow), sans-serif", fontSize: 14, fontWeight: 400, color: "rgba(255,255,255,0.88)", lineHeight: 1.7, textShadow: "0 1px 2px rgba(0,0,0,0.35)" }}>{desc}</p>
                 </div>
               </div>
             ))}

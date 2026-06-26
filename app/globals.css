@@ -136,7 +136,7 @@ body {
   border-color: rgba(45, 122, 45, 0.35) !important;
 }
 .svc-card:hover .svc-icon {
-  background: #2d7a2d !important;
+  background: rgba(45,122,45,0.85) !important;
   color: #fff !important;
 }
 .svc-icon { transition: background 0.28s, color 0.28s; }
