@@ -25,13 +25,23 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
       toast.error(error.message)
       setLoading(false)
       return
     }
-    router.push("/")
+    // Obtener rol del usuario para redirigir al panel correcto
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", data.user.id)
+      .single()
+    const role = profile?.role
+    if (role === "admin") router.push("/admin/dashboard")
+    else if (role === "inspector") router.push("/inspector/inspections")
+    else if (role === "client") router.push("/client/dashboard")
+    else router.push("/admin/dashboard") // fallback
     router.refresh()
   }
 
