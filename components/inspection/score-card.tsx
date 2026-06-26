@@ -37,6 +37,9 @@ export default function ScoreCard({ visual, carroceria, mecanica, final, size = 
             </div>
           ))}
         </div>
+        <p className="text-[10px] text-gray-400 mt-3 leading-snug">
+          * La nota final se calcula en base a los ítems revisados y marcados durante la inspección. Los ítems marcados como <strong>N/A</strong> (No Aplica) quedan excluidos del cálculo.
+        </p>
       </div>
     </div>
   )

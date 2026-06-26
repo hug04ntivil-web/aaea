@@ -589,6 +589,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     y += SH_BIG + 12
 
+    // ── Leyenda de cálculo de nota ────────────────────────────────────────────
+    doc.fillColor("#f1f5f9").rect(ML, y, CW, 13).fill()
+    doc.fillColor(C.muted).font("Helvetica").fontSize(6)
+      .text("* La nota final se calcula en base a los ítems revisados y marcados durante la inspección. Los ítems marcados como N/A (No Aplica) quedan excluidos del cálculo.", ML + 6, y + 3, { width: CW - 12 })
+    y += 16
+
     // ── Ítems con observaciones (rojo=malo, amarillo=alerta, verde=correcto) ───
     if (defects.length > 0) {
       y = sectionBar(doc, `ÍTEMS CON OBSERVACIONES  (${defects.length})`, y)
