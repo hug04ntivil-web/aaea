@@ -626,12 +626,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // ── Observaciones inspector — justo después de los ítems ─────────────────
     if (ins.comentarios) {
       y = sectionBar(doc, "OBSERVACIONES DEL INSPECTOR", y)
-      const obsLines = (ins.comentarios.match(/\n/g) || []).length + 1
-      const obsH = Math.min(Math.max(obsLines * 10, 28), 90)
+      // Estimar alto: ~125 chars por línea a fontSize 7.5, lineHeight ~9.5pt
+      const parasBreaks = (ins.comentarios.match(/\n/g) || []).length
+      const linesByChars = Math.ceil(ins.comentarios.length / 125)
+      const totalLines   = linesByChars + parasBreaks
+      const obsH = Math.min(Math.max(totalLines * 9.5 + 12, 28), 724 - y - 8)
       doc.fillColor("#f0fdf4").rect(ML, y, CW, obsH).fill()
       doc.strokeColor("#86efac").lineWidth(0.5).rect(ML, y, CW, obsH).stroke()
       doc.fillColor(C.text).font("Helvetica").fontSize(7.5)
-        .text(ins.comentarios, ML + 8, y + 5, { width: CW - 16, lineGap: 2, height: obsH - 8, ellipsis: true })
+        .text(ins.comentarios, ML + 8, y + 5, { width: CW - 16, lineGap: 2 })
       y += obsH + 4
     }
 
