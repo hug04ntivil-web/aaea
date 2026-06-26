@@ -185,7 +185,7 @@ export default function LandingPage() {
               alt="Aledalbertz AE Automotive"
               width={150}
               height={60}
-              style={{ height: 44, width: "auto", objectFit: "contain", filter: scrolled ? "none" : "brightness(0) invert(1)", transition: "filter 0.32s" }}
+              style={{ height: 58, width: "auto", objectFit: "contain", filter: scrolled ? "none" : "brightness(0) invert(1)", transition: "filter 0.32s" }}
               priority
             />
           </button>
@@ -256,7 +256,7 @@ export default function LandingPage() {
           <div style={{ position: "absolute", left: -60, bottom: "5%", width: 380, height: 380, borderRadius: "50%", background: "radial-gradient(circle,rgba(82,199,82,0.06) 0%,transparent 70%)" }} />
         </div>
 
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "72px 28px 108px", width: "100%" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "72px 28px 108px", width: "100%", position: "relative", zIndex: 1 }}>
           <div className="hero-layout">
             {/* Left */}
             <div>
@@ -345,14 +345,15 @@ export default function LandingPage() {
                 {/* Overlay para que el texto sea legible */}
                 {/* Gradiente solo en la parte inferior para que el texto sea legible */}
                 <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, transparent 0%, transparent 40%, rgba(0,0,0,0.72) 100%)", pointerEvents: "none" }} />
+                {/* Número en esquina superior izquierda */}
+                <div style={{ position: "absolute", top: 14, left: 16, fontFamily: "var(--font-barlow-condensed), sans-serif", fontSize: 15, fontWeight: 800, color: "#52c752", letterSpacing: "0.08em", lineHeight: 1, background: "rgba(10,30,10,0.55)", borderRadius: 6, padding: "4px 8px" }}>{num}</div>
                 {/* Contenido anclado al fondo */}
-                <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "20px 24px 24px" }}>
-                  <div className="svc-num" style={{ position: "absolute", top: -32, right: 16, fontFamily: "var(--font-barlow-condensed), sans-serif", fontSize: 44, fontWeight: 900, color: "rgba(255,255,255,0.18)", lineHeight: 1, pointerEvents: "none", userSelect: "none" }}>{num}</div>
-                  <div className="svc-icon" style={{ width: 44, height: 44, borderRadius: 10, background: "rgba(10,30,10,0.65)", display: "flex", alignItems: "center", justifyContent: "center", color: "#52c752", marginBottom: 12 }}>
+                <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "20px 20px 22px" }}>
+                  <div className="svc-icon" style={{ width: 44, height: 44, borderRadius: 10, background: "rgba(10,30,10,0.65)", display: "flex", alignItems: "center", justifyContent: "center", color: "#52c752", marginBottom: 10 }}>
                     {icon}
                   </div>
-                  <h3 style={{ fontFamily: "var(--font-barlow), sans-serif", fontSize: 16, fontWeight: 700, color: "#fff", marginBottom: 6 }}>{title}</h3>
-                  <p style={{ fontFamily: "var(--font-barlow), sans-serif", fontSize: 13, fontWeight: 400, color: "rgba(255,255,255,0.80)", lineHeight: 1.6 }}>{desc}</p>
+                  <h3 style={{ fontFamily: "var(--font-barlow), sans-serif", fontSize: 16, fontWeight: 700, color: "#fff", marginBottom: 5 }}>{title}</h3>
+                  <p style={{ fontFamily: "var(--font-barlow), sans-serif", fontSize: 13, fontWeight: 400, color: "rgba(255,255,255,0.82)", lineHeight: 1.6 }}>{desc}</p>
                 </div>
               </div>
             ))}
