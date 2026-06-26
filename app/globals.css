@@ -159,6 +159,12 @@ body {
 .svc-card:hover img { transform: scale(1.05); transition: transform 0.5s ease; }
 .svc-card img { transition: transform 0.5s ease; }
 
+/* ── Hero bg mobile: mostrar más al mecánico con el vehículo ── */
+.hero-bg-img { object-position: center center; }
+@media (max-width: 768px) {
+  .hero-bg-img { object-position: 70% center; }
+}
+
 /* ── Process step hover ─────────────────────────────── */
 .proc-step { transition: transform 0.25s ease; }
 .proc-step:hover { transform: translateY(-4px); }

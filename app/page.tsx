@@ -244,7 +244,7 @@ export default function LandingPage() {
       <section id="inicio" style={{ minHeight: "100vh", background: "#090F09", display: "flex", alignItems: "center", paddingTop: 68, position: "relative", overflow: "hidden" }}>
         {/* Foto de fondo con overlay oscuro */}
         <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-          <img src="/fondoweb.png" alt="" aria-hidden="true" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center" }} />
+          <img src="/fondoweb.png" alt="" aria-hidden="true" className="hero-bg-img" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
           {/* Overlay oscuro para legibilidad del texto */}
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(5,10,5,0.62) 0%, rgba(9,15,9,0.55) 50%, rgba(5,14,5,0.48) 100%)" }} />
           {/* Degradado inferior para la transición con la wave */}
