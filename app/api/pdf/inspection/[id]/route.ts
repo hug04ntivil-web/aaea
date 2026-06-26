@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import PDFDocument from "pdfkit"
 import QRCode from "qrcode"
+import fs from "fs"
+import path from "path"
 
 // ─── Constantes ────────────────────────────────────────────────────────────────
 const PW  = 595   // A4 width
@@ -856,8 +858,49 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       `${v.patente ?? ""} · ${v.marca ?? ""} ${v.modelo ?? ""} ${v.anio ?? ""}  ·  Inspector: ${ins.profiles?.full_name ?? ""}`,
       logoBuf)
 
-    // Car illustration (centered)
-    drawCarBlueprint(doc, PW / 2, PH / 2 - 10, zones)
+    // Car illustration — imagen real con puntos de daño superpuestos
+    let carImgBuf: Buffer | null = null
+    try { carImgBuf = fs.readFileSync(path.join(process.cwd(), "public", "autoparapdf.png")) } catch { }
+
+    // Área disponible: ML=28 hasta legendX-gap=430  →  402pt de ancho
+    const IMG_W = 260
+    const IMG_H = 340
+    const IMG_X = ML + Math.round(((450 - ML) - IMG_W) / 2)   // centro horizontal en área libre
+    const IMG_Y = 48
+
+    if (carImgBuf) {
+      doc.image(carImgBuf, IMG_X, IMG_Y, { width: IMG_W, height: IMG_H })
+    } else {
+      doc.fillColor(C.light).rect(IMG_X, IMG_Y, IMG_W, IMG_H).fill()
+      doc.fillColor(C.muted).font("Helvetica").fontSize(9)
+        .text("Diagrama no disponible", IMG_X, IMG_Y + IMG_H / 2 - 5, { width: IMG_W, align: "center" })
+    }
+
+    // Posiciones de zonas como fracción de (IMG_W, IMG_H) — mapeadas sobre la imagen real
+    const dotFrac: Record<string, [number, number]> = {
+      "front_bumper": [0.50, 0.06],
+      "hood":         [0.50, 0.22],
+      "windshield_f": [0.50, 0.36],
+      "roof":         [0.50, 0.50],
+      "windshield_r": [0.50, 0.64],
+      "trunk":        [0.50, 0.79],
+      "rear_bumper":  [0.50, 0.93],
+      "left":         [0.11, 0.50],
+      "right":        [0.89, 0.50],
+      "wheel_fl":     [0.16, 0.28],
+      "wheel_fr":     [0.84, 0.28],
+      "wheel_rl":     [0.16, 0.72],
+      "wheel_rr":     [0.84, 0.72],
+    }
+
+    Object.entries(zones).forEach(([zone, color]) => {
+      const frac = dotFrac[zone]; if (!frac) return
+      const dx = IMG_X + Math.round(frac[0] * IMG_W)
+      const dy = IMG_Y + Math.round(frac[1] * IMG_H)
+      doc.fillColor("#ffffff").circle(dx, dy, 8).fill()
+      doc.fillColor(color).circle(dx, dy, 6.5).fill()
+      doc.strokeColor("#00000030").lineWidth(0.5).circle(dx, dy, 6.5).stroke()
+    })
 
     // Zone label panel (right side)
     const legendX = PW - 145
