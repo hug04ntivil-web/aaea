@@ -21,7 +21,7 @@ export default function ScoreCard({ visual, carroceria, mecanica, final, size = 
         <span className={`font-black text-white leading-none ${size === "lg" ? "text-4xl" : "text-3xl"}`}>{final?.toFixed(1)}</span>
         <span className="text-[11px] text-white/70 font-medium">{pct(final)}%</span>
       </div>
-      <div className="flex-1">
+      <div className="flex-1 min-w-0">
         {size === "lg" && <p className="text-lg font-bold text-gray-800 mb-0.5">Nota final</p>}
         <p className={`text-sm font-medium mb-3 ${final >= 6.5 ? "text-green-600" : final >= 5 ? "text-yellow-600" : "text-red-600"}`}>
           {label}
@@ -37,8 +37,8 @@ export default function ScoreCard({ visual, carroceria, mecanica, final, size = 
             </div>
           ))}
         </div>
-        <p className="text-[10px] text-gray-400 mt-3 leading-snug">
-          * La nota final se calcula en base a los ítems revisados y marcados durante la inspección. Los ítems marcados como <strong>N/A</strong> (No Aplica) quedan excluidos del cálculo.
+        <p className="text-[10px] text-gray-400 mt-2 leading-snug line-clamp-3 max-w-[260px]">
+          * Nota calculada sobre ítems evaluados. Se excluyen los marcados como <strong>N/A</strong> (No Aplica).
         </p>
       </div>
     </div>
