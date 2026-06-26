@@ -7,15 +7,15 @@ import { ThemeProvider } from "next-themes"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "AAEA Inspecciones",
-  description: "Sistema profesional de inspección vehicular",
+  title: "Aledalbertz AE Automotive — Inspección y Reparación Automotriz en San Ramón",
+  description: "Taller mecánico profesional en San Ramón, Santiago. Inspecciones, diagnóstico electrónico, mantención preventiva y presupuestos transparentes. +10 años de experiencia.",
 }
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#0f172a",
+  themeColor: "#1e4d1e",
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

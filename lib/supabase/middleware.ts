@@ -27,7 +27,7 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl
   const publicRoutes = ["/login", "/forgot-password", "/reset-password"]
-  const isPublicRoute = publicRoutes.some(r => pathname.startsWith(r))
+  const isPublicRoute = pathname === "/" || publicRoutes.some(r => pathname.startsWith(r))
   const isPublicToken = pathname.startsWith("/p/") || pathname.startsWith("/q/")
   const isApiRoute = pathname.startsWith("/api/")
 
@@ -37,7 +37,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  if (user && isPublicRoute) {
+  if (user && isPublicRoute && pathname !== "/") {
     const url = request.nextUrl.clone()
     url.pathname = "/"
     return NextResponse.redirect(url)
