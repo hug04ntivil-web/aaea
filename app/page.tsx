@@ -205,7 +205,7 @@ export default function LandingPage() {
               href="/login"
               style={{ background: "#2d7a2d", color: "#fff", padding: "11px 24px", borderRadius: 8, fontFamily: "var(--font-barlow), sans-serif", fontSize: 13, fontWeight: 700, textDecoration: "none", letterSpacing: "0.05em", textTransform: "uppercase" }}
             >
-              ACCESO AL SISTEMA
+              ACCESO
             </Link>
           </nav>
 
@@ -233,7 +233,7 @@ export default function LandingPage() {
                 onClick={() => setMenuOpen(false)}
                 style={{ display: "block", textAlign: "center", background: "#2d7a2d", color: "#fff", borderRadius: 8, padding: 13, marginTop: 8, fontFamily: "var(--font-barlow), sans-serif", fontSize: 15, fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", textTransform: "uppercase" }}
               >
-                ACCESO AL SISTEMA
+                ACCESO
               </Link>
             </div>
           </div>
@@ -304,8 +304,8 @@ export default function LandingPage() {
                 {/* Floating badges */}
                 {[
                   { val: "+500", label: "Inspecciones", style: { top: 22, right: -28 } },
-                  { val: "+10", label: "Años Exp.", style: { bottom: 52, left: -40 } },
                   { val: "100%", label: "Garantía", style: { bottom: 174, right: -18 } },
+                  { val: "+10", label: "Años Exp.", style: { bottom: 76, right: -18 } },
                 ].map(({ val, label, style: s }) => (
                   <div key={label} style={{ position: "absolute", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, padding: "14px 20px", backdropFilter: "blur(12px)", ...s }}>
                     <div style={{ fontFamily: "var(--font-barlow-condensed), sans-serif", fontSize: 38, fontWeight: 900, color: "#52c752", lineHeight: 1 }}>{val}</div>
