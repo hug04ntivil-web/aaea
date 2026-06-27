@@ -29,10 +29,9 @@ export default function ForgotPasswordPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4 shadow-lg">
-            <span className="text-white text-2xl font-black">AA</span>
+          <div className="flex items-center justify-center mb-4">
+            <img src="/alelogo.png" alt="AAEA Inspecciones" className="h-20 w-auto drop-shadow-lg object-contain" />
           </div>
-          <h1 className="text-2xl font-bold text-white">AAEA Inspecciones</h1>
         </div>
 
         <div className="bg-white rounded-2xl shadow-2xl p-6">
