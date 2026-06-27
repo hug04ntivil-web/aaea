@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
@@ -10,6 +10,23 @@ export default function ResetPasswordPage() {
   const [password, setPassword] = useState("")
   const [confirm, setConfirm] = useState("")
   const [loading, setLoading] = useState(false)
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    // Establece la sesión desde los tokens que vienen en el hash de la URL
+    const hash = window.location.hash
+    if (hash && hash.includes("access_token")) {
+      const params = new URLSearchParams(hash.substring(1))
+      const access_token = params.get("access_token") ?? ""
+      const refresh_token = params.get("refresh_token") ?? ""
+      if (access_token) {
+        const supabase = createClient()
+        supabase.auth.setSession({ access_token, refresh_token }).then(() => setReady(true))
+        return
+      }
+    }
+    setReady(true)
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -72,10 +89,10 @@ export default function ResetPasswordPage() {
             </div>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !ready}
               className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition disabled:opacity-50"
             >
-              {loading ? "Guardando..." : "Guardar contraseña"}
+              {loading ? "Guardando..." : !ready ? "Cargando..." : "Guardar contraseña"}
             </button>
           </form>
         </div>
