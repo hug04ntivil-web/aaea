@@ -244,7 +244,7 @@ export default function LandingPage() {
       <section id="inicio" style={{ minHeight: "100vh", background: "#090F09", display: "flex", alignItems: "center", paddingTop: 68, position: "relative", overflow: "hidden" }}>
         {/* Foto de fondo con overlay oscuro */}
         <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-          <Image src="/fondoweb.png" alt="" aria-hidden="true" fill priority quality={80} sizes="100vw" className="hero-bg-img" style={{ objectFit: "cover" }} />
+          <img src="/fondoweb.png" alt="" aria-hidden="true" className="hero-bg-img" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
           {/* Overlay oscuro para legibilidad del texto */}
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(5,10,5,0.62) 0%, rgba(9,15,9,0.55) 50%, rgba(5,14,5,0.48) 100%)" }} />
           {/* Degradado inferior para la transición con la wave */}
@@ -337,7 +337,7 @@ export default function LandingPage() {
             {SERVICES.map(({ icon, title, desc, num, bg }) => (
               <div key={title} className="svc-card" style={{ borderRadius: 14, border: "1.5px solid #ebebE6", position: "relative", overflow: "hidden", cursor: "default", minHeight: 260 }}>
                 {/* Imagen de fondo del servicio */}
-                <Image src={bg} alt="" aria-hidden="true" fill quality={75} sizes="(max-width: 768px) 100vw, 33vw" style={{ objectFit: "cover", objectPosition: "center", pointerEvents: "none" }} />
+                <img src={bg} alt="" aria-hidden="true" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", pointerEvents: "none" }} />
                 {/* Overlay para que el texto sea legible */}
                 {/* Gradiente solo en la parte inferior para que el texto sea legible */}
                 <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, transparent 0%, transparent 40%, rgba(0,0,0,0.72) 100%)", pointerEvents: "none" }} />
