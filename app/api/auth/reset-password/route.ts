@@ -1,35 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { Resend } from "resend"
+import { createClient } from "@supabase/supabase-js"
 import { createAdminClient } from "@/lib/supabase/admin"
 
-export async function POST(req: NextRequest) {
-  try {
-    const { email } = await req.json()
-    if (!email?.trim()) {
-      return NextResponse.json({ error: "Email requerido" }, { status: 400 })
-    }
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://aaea.cl"
 
-    const supabase = createAdminClient()
-
-    // Genera el link de recuperación usando el admin client
-    const { data, error } = await supabase.auth.admin.generateLink({
-      type: "recovery",
-      email: email.trim(),
-      options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://aaea.cl"}/reset-password`,
-      },
-    })
-
-    if (error || !data?.properties?.action_link) {
-      return NextResponse.json({ error: "No se pudo generar el enlace" }, { status: 500 })
-    }
-
-    const resetLink = data.properties.action_link
-
-    const resend = new Resend(process.env.RESEND_API_KEY?.replace(/﻿/g, "").trim())
-
-    const html = `
-<!DOCTYPE html>
+function buildHtml(resetLink: string) {
+  return `<!DOCTYPE html>
 <html lang="es">
 <head><meta charset="utf-8"><title>Recuperación de contraseña — AAEA Inspecciones</title></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f1f5f9;margin:0;padding:20px;">
@@ -59,13 +36,51 @@ export async function POST(req: NextRequest) {
   </div>
 </body>
 </html>`
+}
 
-    await resend.emails.send({
-      from: `AAEA Inspecciones <${process.env.RESEND_FROM_EMAIL ?? "noreply@aaea.cl"}>`,
-      to: email.trim(),
-      subject: "Recuperación de contraseña — AAEA Inspecciones",
-      html,
+export async function POST(req: NextRequest) {
+  try {
+    const { email } = await req.json()
+    if (!email?.trim()) {
+      return NextResponse.json({ error: "Email requerido" }, { status: 400 })
+    }
+
+    const supabase = createAdminClient()
+
+    // Intenta enviar con Resend (email en español, sin branding de Supabase)
+    try {
+      const { data, error } = await supabase.auth.admin.generateLink({
+        type: "recovery",
+        email: email.trim(),
+        options: { redirectTo: `${SITE_URL}/reset-password` },
+      })
+
+      if (!error && data?.properties?.action_link) {
+        const resend = new Resend(process.env.RESEND_API_KEY?.replace(/﻿/g, "").trim())
+        await resend.emails.send({
+          from: `AAEA Inspecciones <${process.env.RESEND_FROM_EMAIL ?? "noreply@aaea.cl"}>`,
+          to: email.trim(),
+          subject: "Recuperación de contraseña — AAEA Inspecciones",
+          html: buildHtml(data.properties.action_link),
+        })
+        return NextResponse.json({ ok: true })
+      }
+    } catch (resendErr: any) {
+      console.warn("Resend no disponible, usando email de Supabase:", resendErr.message)
+    }
+
+    // Fallback: email de Supabase (funciona siempre)
+    const anonClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    const { error: fallbackError } = await anonClient.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${SITE_URL}/reset-password`,
     })
+
+    if (fallbackError) {
+      return NextResponse.json({ error: fallbackError.message }, { status: 500 })
+    }
 
     return NextResponse.json({ ok: true })
   } catch (err: any) {
