@@ -51,13 +51,11 @@ export default function LoginPage() {
         {/* Logo / Marca */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
-            {logoUrl ? (
-              <img src={logoUrl} alt={companyName} className="h-16 w-auto drop-shadow-lg object-contain" />
-            ) : (
-              <div className="h-14 flex items-center justify-center">
-                <span className="text-3xl font-black text-white tracking-tight">{companyName}</span>
-              </div>
-            )}
+            <img
+              src={logoUrl || "/alelogo.png"}
+              alt={companyName}
+              className="h-20 w-auto drop-shadow-lg object-contain"
+            />
           </div>
           <p className="text-slate-400 text-sm mt-1">Sistema de inspección vehicular</p>
         </div>
