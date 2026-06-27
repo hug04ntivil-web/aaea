@@ -23,6 +23,10 @@ const barlowCondensed = Barlow_Condensed({
 export const metadata: Metadata = {
   title: "Aledalbertz AE Automotive — Inspección y Reparación Automotriz en San Ramón",
   description: "Taller mecánico profesional en San Ramón, Santiago. Inspecciones, diagnóstico electrónico, mantención preventiva y presupuestos transparentes. +10 años de experiencia.",
+  icons: {
+    icon: "/alelogo.png",
+    apple: "/alelogo.png",
+  },
 }
 
 export const viewport: Viewport = {
