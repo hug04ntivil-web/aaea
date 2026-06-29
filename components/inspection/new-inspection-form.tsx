@@ -166,7 +166,7 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients,
 
   // Client data
   const [selectedClientId, setSelectedClientId] = useState("")
-  const [newClient, setNewClient] = useState({ full_name: "", rut: "", email: "", phone: "", city: "Santiago" })
+  const [newClient, setNewClient] = useState({ full_name: "", rut: "", email: "", phone: "", city: "Santiago", address: "" })
   const [isNewClient, setIsNewClient] = useState(false)
 
   // Inspection items
@@ -747,6 +747,7 @@ export default function NewInspectionForm({ inspectorId, inspectorName, clients,
                 { label: "Teléfono", key: "phone", placeholder: "+569 8776 2210" },
                 { label: "Email", key: "email", placeholder: "cliente@correo.com" },
                 { label: "Ciudad", key: "city", placeholder: "Santiago" },
+                { label: "Dirección", key: "address", placeholder: "Av. Ejemplo 123, San Ramón", full: true },
               ].map(f => (
                 <div key={f.key} className={f.full ? "sm:col-span-2" : ""}>
                   <label className="block text-xs font-medium text-gray-600 mb-1">{f.label}</label>

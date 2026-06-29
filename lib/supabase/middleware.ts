@@ -26,7 +26,7 @@ export async function updateSession(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   const { pathname } = request.nextUrl
-  const publicRoutes = ["/login", "/forgot-password", "/reset-password"]
+  const publicRoutes = ["/login", "/forgot-password", "/reset-password", "/portal"]
   const isPublicRoute = pathname === "/" || publicRoutes.some(r => pathname.startsWith(r))
   const isPublicToken = pathname.startsWith("/p/") || pathname.startsWith("/q/")
   const isApiRoute = pathname.startsWith("/api/")
@@ -39,7 +39,7 @@ export async function updateSession(request: NextRequest) {
 
   if (user && isPublicRoute && pathname !== "/") {
     const url = request.nextUrl.clone()
-    url.pathname = "/"
+    url.pathname = "/portal"
     return NextResponse.redirect(url)
   }
 
