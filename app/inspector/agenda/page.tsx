@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronLeft, ChevronRight, Plus, Car, User, Clock, X, CalendarDays, Trash2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Plus, Car, User, Clock, X, CalendarDays, Trash2, Mail, MessageCircle, MapPin, AtSign } from "lucide-react"
 import AppShell from "@/components/layout/app-shell"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
@@ -51,9 +51,11 @@ interface NewApptForm {
   descripcion: string
   cliente_nombre: string
   patente: string
+  cliente_email: string
+  cliente_direccion: string
 }
 
-const EMPTY_FORM: NewApptForm = { titulo: "", hora: "", descripcion: "", cliente_nombre: "", patente: "" }
+const EMPTY_FORM: NewApptForm = { titulo: "", hora: "", descripcion: "", cliente_nombre: "", patente: "", cliente_email: "", cliente_direccion: "" }
 
 export default function AgendaPage() {
   const router = useRouter()
@@ -66,6 +68,8 @@ export default function AgendaPage() {
   const [showNewAppt, setShowNewAppt] = useState(false)
   const [apptForm, setApptForm] = useState<NewApptForm>(EMPTY_FORM)
   const [savingAppt, setSavingAppt] = useState(false)
+  const [savedAppt, setSavedAppt] = useState<(NewApptForm & { fecha: string }) | null>(null)
+  const [sendingEmail, setSendingEmail] = useState(false)
 
   const loadData = useCallback(async (date: Date) => {
     const supabase = createClient()
@@ -155,7 +159,7 @@ export default function AgendaPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       toast.success("Agendamiento creado")
-      setShowNewAppt(false)
+      setSavedAppt({ ...apptForm, fecha: selectedDay })
       setApptForm(EMPTY_FORM)
       await loadData(viewDate)
     } catch (err: any) {
@@ -163,6 +167,40 @@ export default function AgendaPage() {
     } finally {
       setSavingAppt(false)
     }
+  }
+
+  async function sendEmailNotification() {
+    if (!savedAppt?.cliente_email) return
+    setSendingEmail(true)
+    try {
+      const res = await fetch("/api/appointments/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(savedAppt),
+      })
+      if (res.ok) toast.success("Correo enviado al cliente")
+      else toast.error("Error al enviar correo")
+    } catch {
+      toast.error("Error al enviar correo")
+    } finally {
+      setSendingEmail(false)
+    }
+  }
+
+  function buildWhatsAppLink(appt: NewApptForm & { fecha: string }) {
+    const fecha = new Date(appt.fecha + "T12:00:00").toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+    const lines = [
+      `✅ *Agendamiento confirmado — AAEA Inspecciones*`,
+      ``,
+      `📋 *Servicio:* ${appt.titulo}`,
+      `📅 *Fecha:* ${fecha}`,
+      appt.hora ? `⏰ *Hora:* ${appt.hora}` : "",
+      appt.cliente_direccion ? `📍 *Dirección:* ${appt.cliente_direccion}` : "",
+      appt.descripcion ? `📝 *Nota:* ${appt.descripcion}` : "",
+      ``,
+      `_Si necesita reagendar, contáctenos directamente._`,
+    ].filter(Boolean).join("\n")
+    return `https://wa.me/?text=${encodeURIComponent(lines)}`
   }
 
   async function deleteAppointment(id: string) {
@@ -179,13 +217,13 @@ export default function AgendaPage() {
         {/* Modal nuevo agendamiento */}
         {showNewAppt && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl p-5 w-full max-w-sm">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-gray-800 dark:text-slate-100 flex items-center gap-2">
                   <CalendarDays size={16} className="text-blue-500" />
                   Nuevo agendamiento
                 </h3>
-                <button onClick={() => setShowNewAppt(false)} className="text-gray-400 hover:text-gray-600 transition">
+                <button onClick={() => { setShowNewAppt(false); setSavedAppt(null) }} className="text-gray-400 hover:text-gray-600 transition">
                   <X size={18} />
                 </button>
               </div>
@@ -194,67 +232,128 @@ export default function AgendaPage() {
                   📅 {new Date(selectedDay + "T12:00:00").toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
                 </p>
               )}
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs font-medium text-gray-600 dark:text-slate-400 mb-1 block">Título *</label>
-                  <input
-                    type="text"
-                    placeholder="Ej: Inspección Toyota Corolla"
-                    value={apptForm.titulo}
-                    onChange={e => setApptForm(f => ({ ...f, titulo: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-600 dark:text-slate-400 mb-1 block">Hora</label>
-                    <input
-                      type="time"
-                      value={apptForm.hora}
-                      onChange={e => setApptForm(f => ({ ...f, hora: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+
+              {savedAppt ? (
+                /* Paso 2: agendamiento guardado, ofrecer notificar */
+                <div className="space-y-3">
+                  <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-xl border border-green-200 dark:border-green-800">
+                    <p className="text-sm font-semibold text-green-700 dark:text-green-400">✅ Agendamiento guardado</p>
+                    <p className="text-xs text-green-600 dark:text-green-500 mt-0.5">{savedAppt.titulo}</p>
                   </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-600 dark:text-slate-400 mb-1 block">Patente</label>
-                    <input
-                      type="text"
-                      placeholder="HPTT72"
-                      value={apptForm.patente}
-                      onChange={e => setApptForm(f => ({ ...f, patente: e.target.value.toUpperCase() }))}
-                      className="w-full px-3 py-2 border border-gray-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
-                    />
+                  <p className="text-xs font-medium text-gray-600 dark:text-slate-400">¿Notificar al cliente?</p>
+                  <div className="flex gap-2">
+                    {savedAppt.cliente_email ? (
+                      <button
+                        onClick={sendEmailNotification}
+                        disabled={sendingEmail}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium disabled:opacity-50 transition"
+                      >
+                        <Mail size={14} />
+                        {sendingEmail ? "Enviando..." : "Email"}
+                      </button>
+                    ) : null}
+                    <a
+                      href={buildWhatsAppLink(savedAppt)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-medium transition"
+                    >
+                      <MessageCircle size={14} /> WhatsApp
+                    </a>
                   </div>
+                  <button
+                    onClick={() => { setShowNewAppt(false); setSavedAppt(null) }}
+                    className="w-full py-2 border border-gray-200 dark:border-slate-700 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-slate-800 transition"
+                  >
+                    Cerrar sin notificar
+                  </button>
                 </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-600 dark:text-slate-400 mb-1 block">Cliente</label>
-                  <input
-                    type="text"
-                    placeholder="Nombre del cliente"
-                    value={apptForm.cliente_nombre}
-                    onChange={e => setApptForm(f => ({ ...f, cliente_nombre: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-600 dark:text-slate-400 mb-1 block">Descripción</label>
-                  <textarea
-                    rows={2}
-                    placeholder="Notas adicionales..."
-                    value={apptForm.descripcion}
-                    onChange={e => setApptForm(f => ({ ...f, descripcion: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-2 mt-4">
-                <button onClick={() => setShowNewAppt(false)} className="flex-1 py-2 border border-gray-200 dark:border-slate-700 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-slate-800 transition">
-                  Cancelar
-                </button>
-                <button onClick={saveAppointment} disabled={savingAppt} className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold disabled:opacity-50 transition">
-                  {savingAppt ? "Guardando..." : "Agendar"}
-                </button>
-              </div>
+              ) : (
+                /* Paso 1: formulario */
+                <>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs font-medium text-gray-600 dark:text-slate-400 mb-1 block">Título *</label>
+                      <input
+                        type="text"
+                        placeholder="Ej: Inspección Toyota Corolla"
+                        value={apptForm.titulo}
+                        onChange={e => setApptForm(f => ({ ...f, titulo: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-medium text-gray-600 dark:text-slate-400 mb-1 block">Hora</label>
+                        <input
+                          type="time"
+                          value={apptForm.hora}
+                          onChange={e => setApptForm(f => ({ ...f, hora: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-600 dark:text-slate-400 mb-1 block">Patente</label>
+                        <input
+                          type="text"
+                          placeholder="HPTT72"
+                          value={apptForm.patente}
+                          onChange={e => setApptForm(f => ({ ...f, patente: e.target.value.toUpperCase() }))}
+                          className="w-full px-3 py-2 border border-gray-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-600 dark:text-slate-400 mb-1 flex items-center gap-1"><User size={11} /> Cliente</label>
+                      <input
+                        type="text"
+                        placeholder="Nombre del cliente"
+                        value={apptForm.cliente_nombre}
+                        onChange={e => setApptForm(f => ({ ...f, cliente_nombre: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-600 dark:text-slate-400 mb-1 flex items-center gap-1"><AtSign size={11} /> Email cliente</label>
+                      <input
+                        type="email"
+                        placeholder="cliente@correo.com"
+                        value={apptForm.cliente_email}
+                        onChange={e => setApptForm(f => ({ ...f, cliente_email: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-600 dark:text-slate-400 mb-1 flex items-center gap-1"><MapPin size={11} /> Dirección</label>
+                      <input
+                        type="text"
+                        placeholder="Av. Ejemplo 123, Santiago"
+                        value={apptForm.cliente_direccion}
+                        onChange={e => setApptForm(f => ({ ...f, cliente_direccion: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-600 dark:text-slate-400 mb-1 block">Descripción</label>
+                      <textarea
+                        rows={2}
+                        placeholder="Notas adicionales..."
+                        value={apptForm.descripcion}
+                        onChange={e => setApptForm(f => ({ ...f, descripcion: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    <button onClick={() => setShowNewAppt(false)} className="flex-1 py-2 border border-gray-200 dark:border-slate-700 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-slate-800 transition">
+                      Cancelar
+                    </button>
+                    <button onClick={saveAppointment} disabled={savingAppt} className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold disabled:opacity-50 transition">
+                      {savingAppt ? "Guardando..." : "Agendar"}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}

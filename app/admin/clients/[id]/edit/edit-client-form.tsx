@@ -14,6 +14,7 @@ interface Client {
   email: string | null
   phone: string | null
   city: string | null
+  address: string | null
   notes: string | null
 }
 
@@ -26,6 +27,7 @@ export default function EditClientForm({ client, adminName }: { client: Client; 
     email: client.email ?? "",
     phone: client.phone ?? "",
     city: client.city ?? "",
+    address: client.address ?? "",
     notes: client.notes ?? "",
   })
 
@@ -118,6 +120,17 @@ export default function EditClientForm({ client, adminName }: { client: Client; 
                 value={form.city}
                 onChange={handleChange}
                 placeholder="Santiago"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
+              <input
+                name="address"
+                value={form.address}
+                onChange={handleChange}
+                placeholder="Av. Ejemplo 123, San Ramón"
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>

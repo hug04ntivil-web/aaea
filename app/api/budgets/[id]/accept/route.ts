@@ -23,7 +23,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { error } = await supabase
     .from("budgets")
-    .update({ status: "accepted", opcion_aceptada: opcion })
+    .update({ status: "accepted", opcion_aceptada: opcion, seen_by_inspector: false })
     .eq("id", id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })

@@ -15,6 +15,7 @@ interface NavItem {
   href: string
   label: string
   icon: React.ElementType
+  badge?: number
 }
 
 const adminNav: NavItem[] = [
@@ -56,6 +57,7 @@ export default function Sidebar({ role, userName, open, onClose }: SidebarProps)
   const router = useRouter()
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [companyName, setCompanyName] = useState("AAEA")
+  const [unreadBudgets, setUnreadBudgets] = useState(0)
 
   useEffect(() => {
     fetch("/api/settings/logo")
@@ -64,7 +66,18 @@ export default function Sidebar({ role, userName, open, onClose }: SidebarProps)
       .catch(() => {})
   }, [])
 
-  const nav = role === "admin" ? adminNav : role === "inspector" ? inspectorNav : clientNav
+  useEffect(() => {
+    if (role !== "inspector") return
+    fetch("/api/budgets/unread")
+      .then(r => r.ok ? r.json() : { count: 0 })
+      .then(d => setUnreadBudgets(d.count ?? 0))
+      .catch(() => {})
+  }, [role, pathname])
+
+  const baseNav = role === "admin" ? adminNav : role === "inspector" ? inspectorNav : clientNav
+  const nav = baseNav.map(item =>
+    item.href === "/inspector/budgets" ? { ...item, badge: unreadBudgets } : item
+  )
   const roleLabel = role === "admin" ? "Administrador" : role === "inspector" ? "Inspector" : "Cliente"
   const roleColor = role === "admin" ? "bg-purple-100 text-purple-700" : role === "inspector" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"
 
@@ -126,7 +139,12 @@ export default function Sidebar({ role, userName, open, onClose }: SidebarProps)
               )}
             >
               <item.icon size={18} />
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {item.badge && item.badge > 0 ? (
+                <span className="bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                  {item.badge > 9 ? "9+" : item.badge}
+                </span>
+              ) : null}
             </Link>
           ))}
         </nav>

@@ -37,6 +37,8 @@ export default function BudgetsPage() {
       setProfile(d.profile)
       setLoading(false)
     })
+    // Marcar presupuestos aceptados como vistos
+    fetch("/api/budgets/unread", { method: "PATCH" }).catch(() => {})
   }, [])
 
   async function changeStatus(id: string, status: string) {
