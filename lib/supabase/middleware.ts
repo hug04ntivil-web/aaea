@@ -37,11 +37,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  if (user && isPublicRoute && pathname !== "/") {
-    const url = request.nextUrl.clone()
-    url.pathname = "/portal"
-    return NextResponse.redirect(url)
-  }
+  // No redirigir usuarios autenticados fuera del login; ellos pueden iniciar sesión nuevamente si quieren
 
   return supabaseResponse
 }

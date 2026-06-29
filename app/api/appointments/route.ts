@@ -31,13 +31,13 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
 
   const body = await req.json()
-  const { fecha, hora, titulo, descripcion, cliente_nombre, patente, cliente_email, cliente_direccion } = body
+  const { fecha, hora, titulo, descripcion, cliente_nombre, patente, cliente_email, cliente_telefono, cliente_direccion } = body
 
   if (!fecha || !titulo) return NextResponse.json({ error: "fecha y titulo son requeridos" }, { status: 400 })
 
   const { data, error } = await supabase
     .from("appointments")
-    .insert({ inspector_id: user.id, fecha, hora: hora || null, titulo, descripcion, cliente_nombre, patente, cliente_email: cliente_email || null, cliente_direccion: cliente_direccion || null, status: "pending" })
+    .insert({ inspector_id: user.id, fecha, hora: hora || null, titulo, descripcion, cliente_nombre, patente, cliente_email: cliente_email || null, cliente_telefono: cliente_telefono || null, cliente_direccion: cliente_direccion || null, status: "pending" })
     .select()
     .single()
 

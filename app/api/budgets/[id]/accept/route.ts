@@ -7,16 +7,15 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://aaea.cl"
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const { opcion } = await request.json()   // "original" | "alternativo" | "otro"
+  const { opcion } = await request.json()
 
   if (!["original", "alternativo", "otro"].includes(opcion)) {
     return NextResponse.json({ error: "Opción inválida" }, { status: 400 })
   }
 
-  // Usa cliente público — RLS policy "Anon can accept open budgets" protege la operación
-  const supabase = createPublicClient()
-
-  const { data: budget, error: fetchErr } = await supabase
+  // Verificar que el presupuesto existe y está disponible (cliente público / RLS)
+  const publicClient = createPublicClient()
+  const { data: budget, error: fetchErr } = await publicClient
     .from("budgets")
     .select("id, status, numero, inspector_id, clients(full_name)")
     .eq("id", id)
@@ -25,16 +24,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (fetchErr || !budget) return NextResponse.json({ error: "Presupuesto no encontrado" }, { status: 404 })
   if (budget.status === "accepted") return NextResponse.json({ error: "Ya fue aceptado" }, { status: 400 })
 
-  const { error } = await supabase
+  // Usar admin client para el update — evita limitaciones de RLS en seen_by_inspector
+  const adminClient = createAdminClient()
+  const { error } = await adminClient
     .from("budgets")
     .update({ status: "accepted", opcion_aceptada: opcion, seen_by_inspector: false })
     .eq("id", id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
-  // Notificar al inspector por email usando cliente admin para obtener su email
+  // Enviar correo al inspector
   try {
-    const adminClient = createAdminClient()
     const { data: inspectorProfile } = await adminClient
       .from("profiles")
       .select("full_name")
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
               <p style="color:#374151;font-size:15px">Hola <strong>${inspectorName}</strong>,</p>
               <p style="color:#374151;font-size:14px">El cliente ha aceptado el presupuesto:</p>
               <table style="width:100%;border-collapse:collapse;font-size:14px;margin:16px 0">
-                <tr><td style="padding:8px 0;color:#6b7280;width:120px">Presupuesto</td><td style="padding:8px 0;font-weight:600;color:#111827">#${budget.numero}</td></tr>
+                <tr><td style="padding:8px 0;color:#6b7280;width:130px">Presupuesto</td><td style="padding:8px 0;font-weight:600;color:#111827">#${budget.numero}</td></tr>
                 <tr><td style="padding:8px 0;color:#6b7280">Cliente</td><td style="padding:8px 0;font-weight:600;color:#111827">${clientName}</td></tr>
                 <tr><td style="padding:8px 0;color:#6b7280">Opción elegida</td><td style="padding:8px 0;font-weight:600;color:#16a34a">${opcionLabel}</td></tr>
               </table>
@@ -75,7 +75,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       })
     }
   } catch (emailErr) {
-    // No fallar la aceptación si el email falla
     console.warn("Email al inspector falló:", emailErr)
   }
 

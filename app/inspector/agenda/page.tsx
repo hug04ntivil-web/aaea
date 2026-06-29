@@ -52,10 +52,11 @@ interface NewApptForm {
   cliente_nombre: string
   patente: string
   cliente_email: string
+  cliente_telefono: string
   cliente_direccion: string
 }
 
-const EMPTY_FORM: NewApptForm = { titulo: "", hora: "", descripcion: "", cliente_nombre: "", patente: "", cliente_email: "", cliente_direccion: "" }
+const EMPTY_FORM: NewApptForm = { titulo: "", hora: "", descripcion: "", cliente_nombre: "", patente: "", cliente_email: "", cliente_telefono: "", cliente_direccion: "" }
 
 export default function AgendaPage() {
   const router = useRouter()
@@ -195,12 +196,16 @@ export default function AgendaPage() {
       `📋 *Servicio:* ${appt.titulo}`,
       `📅 *Fecha:* ${fecha}`,
       appt.hora ? `⏰ *Hora:* ${appt.hora}` : "",
+      appt.cliente_nombre ? `👤 *Cliente:* ${appt.cliente_nombre}` : "",
       appt.cliente_direccion ? `📍 *Dirección:* ${appt.cliente_direccion}` : "",
       appt.descripcion ? `📝 *Nota:* ${appt.descripcion}` : "",
       ``,
       `_Si necesita reagendar, contáctenos directamente._`,
     ].filter(Boolean).join("\n")
-    return `https://wa.me/?text=${encodeURIComponent(lines)}`
+    // Si hay teléfono del cliente, abrir chat directo con ese número
+    const phone = appt.cliente_telefono?.replace(/[^0-9]/g, "")
+    const base = phone ? `https://wa.me/${phone.startsWith("56") ? phone : `56${phone}`}` : "https://wa.me/"
+    return `${base}?text=${encodeURIComponent(lines)}`
   }
 
   async function deleteAppointment(id: string) {
@@ -313,15 +318,27 @@ export default function AgendaPage() {
                         className="w-full px-3 py-2 border border-gray-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
-                    <div>
-                      <label className="text-xs font-medium text-gray-600 dark:text-slate-400 mb-1 flex items-center gap-1"><AtSign size={11} /> Email cliente</label>
-                      <input
-                        type="email"
-                        placeholder="cliente@correo.com"
-                        value={apptForm.cliente_email}
-                        onChange={e => setApptForm(f => ({ ...f, cliente_email: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-medium text-gray-600 dark:text-slate-400 mb-1 flex items-center gap-1"><AtSign size={11} /> Email</label>
+                        <input
+                          type="email"
+                          placeholder="cliente@correo.com"
+                          value={apptForm.cliente_email}
+                          onChange={e => setApptForm(f => ({ ...f, cliente_email: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-600 dark:text-slate-400 mb-1 block">Teléfono</label>
+                        <input
+                          type="tel"
+                          placeholder="+56 9 1234 5678"
+                          value={apptForm.cliente_telefono}
+                          onChange={e => setApptForm(f => ({ ...f, cliente_telefono: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
                     </div>
                     <div>
                       <label className="text-xs font-medium text-gray-600 dark:text-slate-400 mb-1 flex items-center gap-1"><MapPin size={11} /> Dirección</label>
