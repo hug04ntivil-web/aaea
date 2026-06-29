@@ -6,7 +6,7 @@ async function getAdminSupabase() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { supabase, error: "No autorizado" }
   const { data: myRole } = await supabase.rpc("get_my_role")
-  if (myRole !== "admin") return { supabase, error: "Sin permisos" }
+  if (!["admin", "inspector"].includes(myRole)) return { supabase, error: "Sin permisos" }
   return { supabase, error: null }
 }
 
@@ -16,7 +16,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (error) return NextResponse.json({ error }, { status: error === "No autorizado" ? 401 : 403 })
 
   const body = await request.json()
-  const { full_name, rut, email, phone, city, notes } = body
+  const { full_name, rut, email, phone, city, address, notes } = body
 
   const { error: updateError } = await supabase.from("clients").update({
     full_name,
@@ -24,6 +24,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     email: email || null,
     phone: phone || null,
     city: city || null,
+    address: address || null,
     notes: notes || null,
   }).eq("id", id)
 

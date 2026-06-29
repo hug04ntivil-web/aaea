@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import AppShell from "@/components/layout/app-shell"
 import Link from "next/link"
-import { Plus, ClipboardList, Receipt, Users, Clock, FileText, Send, CheckCircle } from "lucide-react"
+import { Plus, ClipboardList, Receipt, Users, Clock, FileText, Send, CheckCircle, Bell } from "lucide-react"
 import { formatDate } from "@/lib/utils"
 import DashboardCharts from "@/components/dashboard/dashboard-charts"
 import { format, subMonths, startOfMonth, endOfMonth } from "date-fns"
@@ -81,6 +81,14 @@ export default async function InspectorDashboard() {
     .order("created_at", { ascending: false })
     .limit(4)
 
+  // Presupuestos aceptados que el inspector aún no ha visto
+  const { data: unreadAccepted } = await supabase
+    .from("budgets")
+    .select(`id, numero, clients(full_name), cliente_nombre, vehicle_patente`)
+    .eq("inspector_id", user!.id)
+    .eq("status", "accepted")
+    .eq("seen_by_inspector", false)
+
   const statusLabel: Record<string, string> = { draft: "Borrador", sent: "Enviado", accepted: "Aprobado" }
   const statusColor: Record<string, string> = {
     draft: "bg-gray-100 text-gray-600 dark:bg-slate-700 dark:text-slate-300",
@@ -107,6 +115,33 @@ export default async function InspectorDashboard() {
             </Link>
           </div>
         </div>
+
+        {/* Panel notificaciones — presupuestos aceptados no leídos */}
+        {unreadAccepted && unreadAccepted.length > 0 && (
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Bell size={16} className="text-green-600 dark:text-green-400" />
+              <p className="font-semibold text-green-800 dark:text-green-300 text-sm">
+                {unreadAccepted.length === 1 ? "1 presupuesto aceptado" : `${unreadAccepted.length} presupuestos aceptados`} — sin revisar
+              </p>
+            </div>
+            <div className="space-y-2">
+              {unreadAccepted.map((b: any) => (
+                <Link key={b.id} href={`/inspector/budgets/${b.id}`}
+                  className="flex items-center justify-between bg-white dark:bg-green-900/30 rounded-lg px-3 py-2.5 border border-green-100 dark:border-green-800 hover:border-green-300 transition">
+                  <div>
+                    <span className="text-sm font-bold text-green-800 dark:text-green-300">#{b.numero}</span>
+                    <span className="text-xs text-green-600 dark:text-green-400 ml-2">
+                      {b.clients?.full_name ?? b.cliente_nombre ?? "—"}
+                      {b.vehicle_patente ? ` · ${b.vehicle_patente}` : ""}
+                    </span>
+                  </div>
+                  <span className="text-xs text-green-600 dark:text-green-400 font-medium">Ver →</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Stats generales */}
         <div className="grid grid-cols-3 gap-3">

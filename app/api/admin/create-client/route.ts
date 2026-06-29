@@ -8,11 +8,11 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
 
-  // Verificar rol admin via RPC
+  // Verificar rol admin o inspector via RPC
   const { data: myRole } = await supabase.rpc("get_my_role")
-  if (myRole !== "admin") return NextResponse.json({ error: "Sin permisos" }, { status: 403 })
+  if (!["admin", "inspector"].includes(myRole)) return NextResponse.json({ error: "Sin permisos" }, { status: 403 })
 
-  const { full_name, rut, email, phone, city, notes } = await request.json()
+  const { full_name, rut, email, phone, city, address, notes } = await request.json()
   if (!full_name) {
     return NextResponse.json({ error: "El nombre es obligatorio" }, { status: 400 })
   }
@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
     email: email || null,
     phone: phone || null,
     city: city || "Santiago",
+    address: address || null,
     notes: notes || null,
     created_by: user.id,
   }).select().single()
