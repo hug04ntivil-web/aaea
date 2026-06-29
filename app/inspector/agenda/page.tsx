@@ -53,10 +53,11 @@ interface NewApptForm {
   patente: string
   cliente_email: string
   cliente_telefono: string
+  lugar_tipo: "taller" | "domicilio" | "otra"
   cliente_direccion: string
 }
 
-const EMPTY_FORM: NewApptForm = { titulo: "", hora: "", descripcion: "", cliente_nombre: "", patente: "", cliente_email: "", cliente_telefono: "", cliente_direccion: "" }
+const EMPTY_FORM: NewApptForm = { titulo: "", hora: "", descripcion: "", cliente_nombre: "", patente: "", cliente_email: "", cliente_telefono: "", lugar_tipo: "taller", cliente_direccion: "" }
 
 export default function AgendaPage() {
   const router = useRouter()
@@ -190,6 +191,7 @@ export default function AgendaPage() {
 
   function buildWhatsAppLink(appt: NewApptForm & { fecha: string }) {
     const fecha = new Date(appt.fecha + "T12:00:00").toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+    const lugarLabel = appt.lugar_tipo === "taller" ? "En taller AAEA" : appt.cliente_direccion || ""
     const lines = [
       `✅ *Agendamiento confirmado — AAEA Inspecciones*`,
       ``,
@@ -197,7 +199,7 @@ export default function AgendaPage() {
       `📅 *Fecha:* ${fecha}`,
       appt.hora ? `⏰ *Hora:* ${appt.hora}` : "",
       appt.cliente_nombre ? `👤 *Cliente:* ${appt.cliente_nombre}` : "",
-      appt.cliente_direccion ? `📍 *Dirección:* ${appt.cliente_direccion}` : "",
+      lugarLabel ? `📍 *Lugar:* ${lugarLabel}` : "",
       appt.descripcion ? `📝 *Nota:* ${appt.descripcion}` : "",
       ``,
       `_Si necesita reagendar, contáctenos directamente._`,
@@ -341,7 +343,23 @@ export default function AgendaPage() {
                       </div>
                     </div>
                     <div>
-                      <label className="text-xs font-medium text-gray-600 dark:text-slate-400 mb-1 flex items-center gap-1"><MapPin size={11} /> Dirección</label>
+                      <label className="text-xs font-medium text-gray-600 dark:text-slate-400 mb-1 flex items-center gap-1"><MapPin size={11} /> Lugar de inspección</label>
+                      <div className="flex gap-1.5">
+                        {(["taller", "domicilio", "otra"] as const).map(op => (
+                          <button
+                            key={op}
+                            type="button"
+                            onClick={() => setApptForm(f => ({ ...f, lugar_tipo: op, cliente_direccion: op === "taller" ? "" : f.cliente_direccion }))}
+                            className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition ${apptForm.lugar_tipo === op ? "bg-blue-600 text-white border-blue-600" : "bg-white dark:bg-slate-800 text-gray-600 dark:text-slate-300 border-gray-200 dark:border-slate-700"}`}
+                          >
+                            {op === "taller" ? "En taller" : op === "domicilio" ? "Domicilio" : "Otra dirección"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {apptForm.lugar_tipo !== "taller" && (
+                    <div>
+                      <label className="text-xs font-medium text-gray-600 dark:text-slate-400 mb-1 block">{apptForm.lugar_tipo === "domicilio" ? "Dirección del cliente" : "Otra dirección"}</label>
                       <input
                         type="text"
                         placeholder="Av. Ejemplo 123, Santiago"
@@ -350,6 +368,7 @@ export default function AgendaPage() {
                         className="w-full px-3 py-2 border border-gray-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
+                    )}
                     <div>
                       <label className="text-xs font-medium text-gray-600 dark:text-slate-400 mb-1 block">Descripción</label>
                       <textarea

@@ -201,12 +201,12 @@ export default function LandingPage() {
                 {label}
               </button>
             ))}
-            <Link
+            <a
               href="/login"
               style={{ background: "#2d7a2d", color: "#fff", padding: "11px 24px", borderRadius: 8, fontFamily: "var(--font-barlow), sans-serif", fontSize: 13, fontWeight: 700, textDecoration: "none", letterSpacing: "0.05em", textTransform: "uppercase" }}
             >
               ACCESO
-            </Link>
+            </a>
           </nav>
 
           {/* Mobile toggle */}
@@ -228,13 +228,13 @@ export default function LandingPage() {
                   {label}
                 </button>
               ))}
-              <Link
+              <a
                 href="/login"
                 onClick={() => setMenuOpen(false)}
                 style={{ display: "block", textAlign: "center", background: "#2d7a2d", color: "#fff", borderRadius: 8, padding: 13, marginTop: 8, fontFamily: "var(--font-barlow), sans-serif", fontSize: 15, fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", textTransform: "uppercase" }}
               >
                 ACCESO
-              </Link>
+              </a>
             </div>
           </div>
         )}
@@ -615,7 +615,7 @@ export default function LandingPage() {
           </div>
           <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: 24, display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
             <p style={{ fontFamily: "var(--font-barlow), sans-serif", fontSize: 12, color: "rgba(255,255,255,0.22)" }}>© {new Date().getFullYear()} Aledalbertz AE Automotive. Todos los derechos reservados.</p>
-            <Link href="/login" style={{ fontFamily: "var(--font-barlow), sans-serif", fontSize: 12, color: "rgba(255,255,255,0.22)", textDecoration: "none" }}>Acceso al Sistema de Inspecciones →</Link>
+            <a href="/login" style={{ fontFamily: "var(--font-barlow), sans-serif", fontSize: 12, color: "rgba(255,255,255,0.22)", textDecoration: "none" }}>Acceso al Sistema de Inspecciones →</a>
           </div>
         </div>
       </footer>
