@@ -15,6 +15,10 @@ export default function LoginPage() {
   const [companyName, setCompanyName] = useState("AAEA Inspecciones")
 
   useEffect(() => {
+    // Siempre limpiar sesión al llegar al login — garantiza que ACCESO muestre el formulario
+    const supabase = createClient()
+    supabase.auth.signOut().catch(() => {})
+
     fetch("/api/settings/logo")
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d?.logoUrl) setLogoUrl(d.logoUrl); if (d?.companyName) setCompanyName(d.companyName) })
